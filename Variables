@@ -1,0 +1,38 @@
+firstn = "Alex"
+# a string is series is characters
+food = "pizza"
+email = "ask@me.com"
+print ("hello" , firstn)
+print ("you like pizza right")
+print ( "your email is", email)
+
+# integers are numbers
+age = 20
+quantity = 3
+
+print("you are ", age , "years old")
+print ( "you are buying ", quantity, "items")
+
+# float is a number with a decimal 
+price = 9.99
+grade = 65.4
+print (f"the price is £{price}")
+print (" your grade is",grade)
+dist = 9.5
+print("you are",dist,"miles from home")
+
+#boolean
+isstudent = True
+sale = False
+print("are you a student" , isstudent)
+
+if isstudent:
+    print("you are a student")
+else:
+    print("you are not a student")
+
+if sale:
+    print("item is for sale")
+else:
+    print("item is no longer available")
+    
