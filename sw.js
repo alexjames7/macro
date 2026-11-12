@@ -1,4 +1,4 @@
-const CACHE_NAME = 'macro-tracker-v5';
+const CACHE_NAME = 'macro-tracker-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((response) => {
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {

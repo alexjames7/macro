@@ -192,6 +192,18 @@
       border: 1px solid var(--border-colour);
     }
 
+    .saved-box-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 8px;
+    }
+
     .library-tabs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -203,10 +215,10 @@
     }
 
     .lib-tab-btn {
-      padding: 6px 4px;
+      padding: 7px 4px;
       border: none;
       border-radius: 5px;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
       background: transparent;
@@ -226,7 +238,7 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      max-height: 195px;
+      max-height: 210px;
       overflow-y: auto;
       margin-top: 8px;
     }
@@ -237,7 +249,7 @@
       align-items: center;
       gap: 8px;
       background: var(--card-bg);
-      padding: 8px 10px;
+      padding: 9px 10px;
       border-radius: 6px;
       border: 1px solid var(--border-colour);
     }
@@ -255,7 +267,7 @@
     }
 
     .saved-item-info strong {
-      font-size: 0.86rem;
+      font-size: 0.88rem;
       color: var(--text-main);
     }
 
@@ -273,33 +285,55 @@
       display: block;
       font-size: 0.74rem;
       color: var(--text-muted);
-      margin-top: 2px;
+      margin-top: 3px;
     }
 
     .saved-actions {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
     }
 
     .tag-edit-btn {
-      background: var(--bg-colour);
-      border: 1px solid var(--border-colour);
-      color: var(--text-muted);
-      font-size: 0.7rem;
+      background: var(--primary-light);
+      border: 1px solid #bfdbfe;
+      color: var(--primary);
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 3px 6px;
-      border-radius: 4px;
+      padding: 4px 7px;
+      border-radius: 5px;
       cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tag-edit-btn.tagged {
+      background: var(--success-bg);
+      border-color: #a7f3d0;
+      color: var(--success-text);
     }
 
     .saved-remove-btn {
-      background: transparent;
+      background: #fee2e2;
       border: none;
-      color: var(--text-muted);
-      font-size: 1.05rem;
-      padding: 2px 6px;
+      color: #dc2626;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 7px;
+      border-radius: 5px;
       cursor: pointer;
+    }
+
+    .status-toast {
+      display: none;
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid #a7f3d0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
     }
 
     /* Forms & Inputs */
@@ -373,16 +407,16 @@
 
     .button-group {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-top: 12px;
     }
 
-    .btn-primary, .btn-secondary {
+    .btn-primary, .btn-secondary, .btn-tertiary {
       flex: 1;
-      padding: 12px;
+      padding: 12px 8px;
       border: none;
       border-radius: 8px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
     }
@@ -395,6 +429,16 @@
     .btn-secondary {
       background-color: #e0e7ff;
       color: var(--primary);
+    }
+
+    .btn-tertiary {
+      background-color: var(--bg-colour);
+      color: var(--text-main);
+      border: 1px solid var(--border-colour);
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px;
+      font-size: 0.85rem;
     }
 
     #reader {
@@ -571,6 +615,8 @@
   <section class="card">
     <h2 style="margin-bottom: 12px;">Log Food Item</h2>
 
+    <div id="status-toast" class="status-toast"></div>
+
     <form id="food-form">
       <div class="input-grid">
         <div class="form-group">
@@ -591,6 +637,10 @@
 
       <!-- Smart Meal Directory & Recents -->
       <div class="saved-foods-box">
+        <div class="saved-box-label">
+          <span>Quick-Fill from Saved Directory</span>
+          <span id="directory-count">0 items</span>
+        </div>
         <div class="library-tabs">
           <button type="button" id="tab-meal-btn" class="lib-tab-btn active">For Breakfast</button>
           <button type="button" id="tab-recent-btn" class="lib-tab-btn">Recents</button>
@@ -644,6 +694,7 @@
         <button type="submit" class="btn-primary">Add Entry</button>
         <button type="button" id="scan-btn" class="btn-secondary">Scan Barcode</button>
       </div>
+      <button type="button" id="save-only-btn" class="btn-tertiary">Save Food to Directory Only (Without Logging)</button>
     </form>
   </section>
 

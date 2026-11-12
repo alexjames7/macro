@@ -32,6 +32,8 @@ const tabRecentBtn = document.getElementById('tab-recent-btn');
 const tabAllBtn = document.getElementById('tab-all-btn');
 const savedSearchInput = document.getElementById('saved-search');
 const savedFoodsListEl = document.getElementById('saved-foods-list');
+const directoryCountEl = document.getElementById('directory-count');
+const statusToastEl = document.getElementById('status-toast');
 
 const foodForm = document.getElementById('food-form');
 const mealCategorySelect = document.getElementById('meal-category');
@@ -49,9 +51,20 @@ const portionLabel = document.getElementById('portion-label');
 const scaledPreviewEl = document.getElementById('scaled-preview');
 
 const scanBtn = document.getElementById('scan-btn');
+const saveOnlyBtn = document.getElementById('save-only-btn');
 const readerDiv = document.getElementById('reader');
 const mealsHeading = document.getElementById('meals-heading');
 const groupedMealsContainer = document.getElementById('grouped-meals-container');
+
+// Helper: Temporary Feedback Banner
+function showToast(message) {
+  statusToastEl.textContent = message;
+  statusToastEl.style.display = 'block';
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    statusToastEl.style.display = 'none';
+  }, 3000);
+}
 
 // 4. Load Saved Data on Startup
 function initApp() {
@@ -257,7 +270,9 @@ function selectSavedFood(id) {
 
   portionAmountInput.value = '';
   portionAmountInput.focus();
+  portionAmountInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
   updateScaledPreview();
+  showToast(`Loaded "${item.name}" — enter amount eaten below.`);
 }
 
 function deleteSavedFood(id) {
@@ -267,6 +282,7 @@ function deleteSavedFood(id) {
 }
 
 function renderSavedFoods(filterQuery = '') {
+  directoryCountEl.textContent = `${savedFoods.length} ${savedFoods.length === 1 ? 'item' : 'items'}`;
   savedFoodsListEl.innerHTML = '';
   const query = filterQuery.trim().toLowerCase();
   const activeMeal = mealCategorySelect.value;
@@ -278,7 +294,8 @@ function renderSavedFoods(filterQuery = '') {
   } else if (libraryTab === 'meal') {
     list = list.filter(f => Array.isArray(f.meals) && f.meals.includes(activeMeal));
   } else if (libraryTab === 'recent') {
-    list = list.slice(0, 8);
+    list.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+    list = list.slice(0, 10);
   } else if (libraryTab === 'all') {
     list.sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -287,9 +304,9 @@ function renderSavedFoods(filterQuery = '') {
     const emptyMsg = document.createElement('p');
     emptyMsg.style.cssText = 'font-size: 0.78rem; color: var(--text-muted); padding: 4px 0;';
     if (savedFoods.length === 0) {
-      emptyMsg.textContent = 'Foods you log or scan save here automatically for quick reuse.';
+      emptyMsg.textContent = 'No saved foods yet. Log an item or use "Save Food to Directory Only" below.';
     } else if (libraryTab === 'meal' && !query) {
-      emptyMsg.textContent = `No foods tagged for ${activeMeal} yet. Log one or tap Directory to tag existing items.`;
+      emptyMsg.textContent = `No foods tagged for ${activeMeal} yet. Tap Directory to tag existing items with +${activeMeal}.`;
     } else {
       emptyMsg.textContent = 'No matching foods found.';
     }
@@ -315,10 +332,10 @@ function renderSavedFoods(filterQuery = '') {
         <small>${item.calories} kcal (${unitLabel}) • P: ${item.protein}g • C: ${item.carbs}g • F: ${item.fat}g</small>
       </div>
       <div class="saved-actions">
-        <button type="button" class="tag-edit-btn" title="Tag or untag for ${activeMeal}" onclick="toggleMealTagOnSaved(${item.id})">
-          ${hasCurrentMealTag ? `-${activeMeal}` : `+${activeMeal}`}
+        <button type="button" class="tag-edit-btn ${hasCurrentMealTag ? 'tagged' : ''}" onclick="toggleMealTagOnSaved(${item.id})">
+          ${hasCurrentMealTag ? `✓ ${activeMeal}` : `+ ${activeMeal}`}
         </button>
-        <button type="button" class="saved-remove-btn" title="Remove from directory" onclick="deleteSavedFood(${item.id})">×</button>
+        <button type="button" class="saved-remove-btn" onclick="deleteSavedFood(${item.id})">Remove</button>
       </div>
     `;
     savedFoodsListEl.appendChild(row);
@@ -327,6 +344,29 @@ function renderSavedFoods(filterQuery = '') {
 
 savedSearchInput.addEventListener('input', (e) => {
   renderSavedFoods(e.target.value);
+});
+
+// Save to Directory Only button
+saveOnlyBtn.addEventListener('click', () => {
+  const name = foodNameInput.value.trim();
+  const cals = Number(caloriesInput.value);
+
+  if (!name || isNaN(cals) || caloriesInput.value === '') {
+    alert('Enter at least a Food Name and Calories to save to your directory.');
+    return;
+  }
+
+  const chosenMeal = mealCategorySelect.value;
+  saveFoodToLibrary({
+    name,
+    basis: currentBasis,
+    calories: cals,
+    protein: Number(proteinInput.value) || 0,
+    carbs: Number(carbsInput.value) || 0,
+    fat: Number(fatInput.value) || 0
+  }, chosenMeal);
+
+  showToast(`Saved "${name}" to Directory under ${chosenMeal}.`);
 });
 
 // 8. Portion Basis Toggle & Live Scaling Calculation
@@ -409,6 +449,7 @@ foodForm.addEventListener('submit', (event) => {
 
   foodEntries.push(newEntry);
   saveAndRender();
+  showToast(`Logged "${baseFoodData.name}" to ${chosenMeal} & saved to Directory.`);
 
   foodForm.reset();
   mealCategorySelect.value = chosenMeal;
@@ -438,6 +479,7 @@ async function fetchProductByBarcode(barcode) {
       portionAmountInput.value = '';
       portionAmountInput.focus();
       updateScaledPreview();
+      showToast(`Scanned "${foodNameInput.value}" — enter grams eaten.`);
     } else {
       alert('Product not found in Open Food Facts. Please enter values manually.');
     }
