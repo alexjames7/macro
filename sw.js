@@ -1,4 +1,4 @@
-const CACHE_NAME = 'macro-tracker-v6';
+const CACHE_NAME = 'macro-tracker-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Let external API requests (Google Sheets & Open Food Facts) bypass the service worker
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request, { cache: 'no-store' })
       .then((response) => {

@@ -50,26 +50,57 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-bottom: 12px;
+      flex-wrap: wrap;
     }
 
     h1 {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
     }
 
     h2 {
       font-size: 1.05rem;
     }
 
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .btn-outline {
       background: var(--card-bg);
       color: var(--primary);
       border: 1px solid var(--primary);
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #94a3b8;
+      display: inline-block;
+    }
+
+    .sync-dot.connected {
+      background-color: #10b981;
+    }
+
+    .sync-dot.syncing {
+      background-color: #f59e0b;
+    }
+
+    .sync-dot.error {
+      background-color: #ef4444;
     }
 
     /* Date Navigation Bar */
@@ -125,6 +156,46 @@
       border-radius: 10px;
       border: 1px solid var(--border-colour);
       margin-bottom: 16px;
+    }
+
+    /* Weight Log History List */
+    .weight-history-list {
+      margin-top: 12px;
+      border-top: 1px solid var(--border-colour);
+      padding-top: 10px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .weight-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-colour);
+      font-size: 0.84rem;
+    }
+
+    .weight-row:last-child {
+      border-bottom: none;
+    }
+
+    .weight-delta {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    .weight-delta.down {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .weight-delta.up {
+      background: var(--warning-bg);
+      color: var(--warning-text);
     }
 
     /* Dashboard Cards */
@@ -516,16 +587,53 @@
 
   <div class="top-bar">
     <h1>Macro Tracker</h1>
-    <button type="button" id="toggle-stats-btn" class="btn-outline">Body Stats & Goals</button>
+    <div class="top-actions">
+      <button type="button" id="toggle-cloud-btn" class="btn-outline">
+        <span id="sync-dot" class="sync-dot"></span> Cloud Sync
+      </button>
+      <button type="button" id="toggle-weight-btn" class="btn-outline">Weight</button>
+      <button type="button" id="toggle-stats-btn" class="btn-outline">Stats</button>
+    </div>
   </div>
 
-  <!-- Date Navigation & Daily History -->
-  <div class="date-nav">
-    <button type="button" id="prev-date-btn" class="date-btn" aria-label="Previous day">←</button>
-    <input type="date" id="date-picker">
-    <button type="button" id="today-btn" class="today-jump-btn" style="display: none;">Today</button>
-    <button type="button" id="next-date-btn" class="date-btn" aria-label="Next day">→</button>
-  </div>
+  <!-- Collapsible Cloud Sync & Excel/CSV Export Panel -->
+  <section id="cloud-panel" class="card" style="display: none;">
+    <h2>Google Sheets Cloud Sync & Backup</h2>
+    <p id="sync-status-text" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; margin-bottom: 10px;">
+      Not connected. Paste your Google Apps Script Web App URL below to sync across devices.
+    </p>
+    <div class="form-group">
+      <label for="cloud-url-input">Apps Script Web App URL</label>
+      <input type="url" id="cloud-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="button-group">
+      <button type="button" id="save-cloud-url-btn" class="btn-primary">Connect & Sync</button>
+      <button type="button" id="sync-now-btn" class="btn-secondary">Sync Now</button>
+    </div>
+    <div class="button-group">
+      <button type="button" id="push-all-btn" class="btn-tertiary" style="margin-top: 0;">Push Local Data to Sheet</button>
+      <button type="button" id="export-csv-btn" class="btn-tertiary" style="margin-top: 0;">Download CSV (Excel)</button>
+    </div>
+  </section>
+
+  <!-- Collapsible Quick Body Weight Logger -->
+  <section id="weight-panel" class="card" style="display: none;">
+    <h2>Log Body Weight</h2>
+    <form id="weight-form" style="margin-top: 10px;">
+      <div class="input-grid">
+        <div class="form-group">
+          <label for="weigh-in-value">Weight (kg)</label>
+          <input type="number" id="weigh-in-value" step="0.1" placeholder="85.0" required>
+        </div>
+        <div class="form-group">
+          <label for="weigh-in-note">Note (optional)</label>
+          <input type="text" id="weigh-in-note" placeholder="e.g. Morning fasted">
+        </div>
+      </div>
+      <button type="submit" class="btn-primary" style="width: 100%;">Save Weigh-In & Update Targets</button>
+    </form>
+    <div id="weight-history-list" class="weight-history-list"></div>
+  </section>
 
   <!-- Collapsible Body Stats & Deficit Calculator -->
   <section id="stats-panel" class="card" style="display: none;">
@@ -578,6 +686,14 @@
       <button type="submit" class="btn-primary" style="width: 100%;">Save Stats & Calculate</button>
     </form>
   </section>
+
+  <!-- Date Navigation & Daily History -->
+  <div class="date-nav">
+    <button type="button" id="prev-date-btn" class="date-btn" aria-label="Previous day">&larr;</button>
+    <input type="date" id="date-picker">
+    <button type="button" id="today-btn" class="today-jump-btn" style="display: none;">Today</button>
+    <button type="button" id="next-date-btn" class="date-btn" aria-label="Next day">&rarr;</button>
+  </div>
 
   <!-- Summary Dashboard -->
   <section class="dashboard">

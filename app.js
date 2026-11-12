@@ -1,4 +1,4 @@
-// 1. Date Helper (Local YYYY-MM-DD)
+// 1. Date & Time Helpers
 function getLocalDateString(dateObj = new Date()) {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -6,18 +6,43 @@ function getLocalDateString(dateObj = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function getLocalTimeString(dateObj = new Date()) {
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const mins = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${hours}:${mins}`;
+}
+
 // 2. State Variables
 let foodEntries = [];
 let savedFoods = [];
+let weightEntries = [];
 let userStats = null;
+let cloudSyncUrl = '';
 let selectedDate = getLocalDateString();
-let currentBasis = '100g'; // '100g' or 'item'
-let libraryTab = 'meal'; // 'meal', 'recent', or 'all'
+let currentBasis = '100g';
+let libraryTab = 'meal';
 let html5QrcodeScanner = null;
 
 const MEAL_CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'];
 
 // 3. DOM Elements
+const toggleCloudBtn = document.getElementById('toggle-cloud-btn');
+const cloudPanel = document.getElementById('cloud-panel');
+const syncDot = document.getElementById('sync-dot');
+const syncStatusText = document.getElementById('sync-status-text');
+const cloudUrlInput = document.getElementById('cloud-url-input');
+const saveCloudUrlBtn = document.getElementById('save-cloud-url-btn');
+const syncNowBtn = document.getElementById('sync-now-btn');
+const pushAllBtn = document.getElementById('push-all-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
+
+const toggleWeightBtn = document.getElementById('toggle-weight-btn');
+const weightPanel = document.getElementById('weight-panel');
+const weightForm = document.getElementById('weight-form');
+const weighInValueInput = document.getElementById('weigh-in-value');
+const weighInNoteInput = document.getElementById('weigh-in-note');
+const weightHistoryList = document.getElementById('weight-history-list');
+
 const toggleStatsBtn = document.getElementById('toggle-stats-btn');
 const statsPanel = document.getElementById('stats-panel');
 const statsForm = document.getElementById('stats-form');
@@ -56,17 +81,32 @@ const readerDiv = document.getElementById('reader');
 const mealsHeading = document.getElementById('meals-heading');
 const groupedMealsContainer = document.getElementById('grouped-meals-container');
 
-// Helper: Temporary Feedback Banner
 function showToast(message) {
   statusToastEl.textContent = message;
   statusToastEl.style.display = 'block';
   clearTimeout(showToast._timer);
   showToast._timer = setTimeout(() => {
     statusToastEl.style.display = 'none';
-  }, 3000);
+  }, 3200);
 }
 
-// 4. Load Saved Data on Startup
+// 4. Collapsible Top Panels (Mutually Exclusive for Clean Mobile UX)
+function togglePanel(targetPanel) {
+  const panels = [cloudPanel, weightPanel, statsPanel];
+  panels.forEach(panel => {
+    if (panel === targetPanel) {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    } else {
+      panel.style.display = 'none';
+    }
+  });
+}
+
+toggleCloudBtn.addEventListener('click', () => togglePanel(cloudPanel));
+toggleWeightBtn.addEventListener('click', () => togglePanel(weightPanel));
+toggleStatsBtn.addEventListener('click', () => togglePanel(statsPanel));
+
+// 5. Initialise App
 function initApp() {
   const today = getLocalDateString();
   selectedDate = today;
@@ -82,9 +122,7 @@ function initApp() {
         migrated = true;
       }
     });
-    if (migrated) {
-      localStorage.setItem('macroEntries', JSON.stringify(foodEntries));
-    }
+    if (migrated) localStorage.setItem('macroEntries', JSON.stringify(foodEntries));
   }
 
   const storedLibrary = localStorage.getItem('savedFoodLibrary');
@@ -95,20 +133,267 @@ function initApp() {
     }));
   }
 
+  const storedWeights = localStorage.getItem('weightLogHistory');
+  if (storedWeights) {
+    weightEntries = JSON.parse(storedWeights);
+  }
+
   const savedStats = localStorage.getItem('userBodyStats');
   if (savedStats) {
     userStats = JSON.parse(savedStats);
     populateStatsForm();
-  } else {
+  }
+
+  const savedCloudUrl = localStorage.getItem('googleSheetsSyncUrl');
+  if (savedCloudUrl) {
+    cloudSyncUrl = savedCloudUrl;
+    cloudUrlInput.value = cloudSyncUrl;
+  } else if (!userStats) {
     statsPanel.style.display = 'block';
   }
 
   updateMealTabLabel();
   renderSavedFoods();
+  renderWeightHistory();
   updateUI();
+
+  if (cloudSyncUrl) {
+    syncFromCloud(true);
+  }
 }
 
-// 5. Date Navigation & Daily Reset Logic
+// 6. Google Sheets Two-Way Sync Engine
+function setSyncIndicator(state, message) {
+  syncDot.className = `sync-dot ${state}`;
+  if (message) {
+    syncStatusText.textContent = message;
+  }
+}
+
+async function postToCloud(payload) {
+  if (!cloudSyncUrl) return;
+  setSyncIndicator('syncing', 'Syncing with Google Sheets...');
+
+  try {
+    const response = await fetch(cloudSyncUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (result.status === 'ok') {
+      setSyncIndicator('connected', `Synced with Google Sheets (${getLocalTimeString()})`);
+    } else {
+      setSyncIndicator('error', `Sync warning: ${result.message}`);
+    }
+  } catch (err) {
+    console.error('Cloud POST error:', err);
+    setSyncIndicator('error', 'Offline or unreachable — saved locally on device.');
+  }
+}
+
+async function syncFromCloud(silent = false) {
+  if (!cloudSyncUrl) {
+    if (!silent) alert('Paste your Google Apps Script Web App URL first.');
+    return;
+  }
+
+  setSyncIndicator('syncing', 'Pulling latest data from Google Sheets...');
+
+  try {
+    const response = await fetch(cloudSyncUrl, {
+      redirect: 'follow',
+      cache: 'no-store'
+    });
+    const data = await response.json();
+
+    if (data.status === 'ok') {
+      const sheetIsEmpty =
+        data.entries.length === 0 &&
+        data.directory.length === 0 &&
+        !data.stats &&
+        data.weights.length === 0;
+
+      const deviceHasData =
+        foodEntries.length > 0 ||
+        savedFoods.length > 0 ||
+        userStats !== null ||
+        weightEntries.length > 0;
+
+      // On first connect to a blank sheet, upload existing device data instead of wiping it
+      if (sheetIsEmpty && deviceHasData) {
+        await pushAllToCloud();
+        return;
+      }
+
+      foodEntries = data.entries;
+      savedFoods = data.directory;
+      weightEntries = data.weights;
+      if (data.stats) {
+        userStats = data.stats;
+        localStorage.setItem('userBodyStats', JSON.stringify(userStats));
+        populateStatsForm();
+      }
+
+      localStorage.setItem('macroEntries', JSON.stringify(foodEntries));
+      localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+      localStorage.setItem('weightLogHistory', JSON.stringify(weightEntries));
+
+      renderSavedFoods(savedSearchInput.value);
+      renderWeightHistory();
+      updateUI();
+
+      setSyncIndicator('connected', `Synced with Google Sheets (${getLocalTimeString()})`);
+      if (!silent) showToast('Synced latest entries, directory, and stats from Google Sheets.');
+    } else {
+      setSyncIndicator('error', `Sync error: ${data.message}`);
+    }
+  } catch (err) {
+    console.error('Cloud GET error:', err);
+    setSyncIndicator('error', 'Unable to reach Google Sheets — working offline.');
+  }
+}
+
+async function pushAllToCloud() {
+  if (!cloudSyncUrl) {
+    alert('Paste your Google Apps Script Web App URL first.');
+    return;
+  }
+
+  await postToCloud({
+    action: 'pushAll',
+    entries: foodEntries,
+    directory: savedFoods,
+    stats: userStats,
+    weights: weightEntries
+  });
+
+  showToast('Uploaded local logs, directory, and stats to Google Sheets.');
+}
+
+saveCloudUrlBtn.addEventListener('click', () => {
+  const url = cloudUrlInput.value.trim();
+  if (!url) {
+    localStorage.removeItem('googleSheetsSyncUrl');
+    cloudSyncUrl = '';
+    setSyncIndicator('', 'Cloud sync disconnected.');
+    return;
+  }
+  cloudSyncUrl = url;
+  localStorage.setItem('googleSheetsSyncUrl', cloudSyncUrl);
+  syncFromCloud(false);
+});
+
+syncNowBtn.addEventListener('click', () => syncFromCloud(false));
+pushAllBtn.addEventListener('click', () => pushAllToCloud());
+
+// 7. One-Click CSV Download (Opens in Excel / Numbers)
+exportCsvBtn.addEventListener('click', () => {
+  if (foodEntries.length === 0) {
+    alert('No food entries logged yet to export.');
+    return;
+  }
+
+  const headers = ['Date', 'Time', 'Meal', 'Food Name', 'Portion', 'Calories (kcal)', 'Protein (g)', 'Carbs (g)', 'Fat (g)'];
+  const sorted = [...foodEntries].sort((a, b) => a.date.localeCompare(b.date));
+
+  const rows = sorted.map(e => [
+    e.date,
+    e.time || '',
+    e.meal,
+    `"${String(e.name).replace(/"/g, '""')}"`,
+    `"${String(e.portionText || '').replace(/"/g, '""')}"`,
+    e.calories,
+    e.protein,
+    e.carbs,
+    e.fat
+  ]);
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `macro-tracker-log-${getLocalDateString()}.csv`;
+  link.click();
+});
+
+// 8. Quick Body Weight Logger
+weightForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const weightVal = Number(weighInValueInput.value);
+  if (!weightVal || weightVal <= 0) return;
+
+  const entry = {
+    id: Date.now(),
+    date: selectedDate,
+    time: getLocalTimeString(),
+    weight: weightVal,
+    notes: weighInNoteInput.value.trim()
+  };
+
+  weightEntries.unshift(entry);
+  localStorage.setItem('weightLogHistory', JSON.stringify(weightEntries));
+  postToCloud({ action: 'logWeight', weightEntry: entry });
+
+  // Automatically update Body Stats weight & recalculate targets if stats exist
+  if (userStats) {
+    userStats.weight = weightVal;
+    localStorage.setItem('userBodyStats', JSON.stringify(userStats));
+    populateStatsForm();
+    postToCloud({ action: 'saveStats', stats: userStats });
+  }
+
+  weighInValueInput.value = '';
+  weighInNoteInput.value = '';
+  renderWeightHistory();
+  updateUI();
+  showToast(`Logged ${weightVal} kg${userStats ? ' & updated daily targets' : ''}.`);
+});
+
+function deleteWeightEntry(id) {
+  weightEntries = weightEntries.filter(w => w.id !== id);
+  localStorage.setItem('weightLogHistory', JSON.stringify(weightEntries));
+  postToCloud({ action: 'deleteWeight', id });
+  renderWeightHistory();
+}
+
+function renderWeightHistory() {
+  weightHistoryList.innerHTML = '';
+  if (weightEntries.length === 0) {
+    weightHistoryList.innerHTML = '<p style="font-size: 0.78rem; color: var(--text-muted);">No weigh-ins recorded yet.</p>';
+    return;
+  }
+
+  const sorted = [...weightEntries].sort((a, b) => b.id - a.id);
+
+  sorted.forEach((item, idx) => {
+    let deltaHtml = '';
+    if (idx < sorted.length - 1) {
+      const diff = Number((item.weight - sorted[idx + 1].weight).toFixed(1));
+      if (diff !== 0) {
+        const cls = diff < 0 ? 'down' : 'up';
+        const sign = diff > 0 ? '+' : '';
+        deltaHtml = `<span class="weight-delta ${cls}">${sign}${diff} kg</span>`;
+      }
+    }
+
+    const row = document.createElement('div');
+    row.className = 'weight-row';
+    row.innerHTML = `
+      <div>
+        <strong>${item.weight.toFixed(1)} kg</strong>${deltaHtml}
+        <span style="color: var(--text-muted); font-size: 0.76rem; display: block;">
+          ${item.date}${item.notes ? ` • ${item.notes}` : ''}
+        </span>
+      </div>
+      <button type="button" class="saved-remove-btn" onclick="deleteWeightEntry(${item.id})">Delete</button>
+    `;
+    weightHistoryList.appendChild(row);
+  });
+}
+
+// 9. Date Navigation & Daily Reset Logic
 function setSelectedDate(newDateStr) {
   if (!newDateStr) return;
   selectedDate = newDateStr;
@@ -127,11 +412,7 @@ nextDateBtn.addEventListener('click', () => shiftDate(1));
 datePicker.addEventListener('change', (e) => setSelectedDate(e.target.value));
 todayBtn.addEventListener('click', () => setSelectedDate(getLocalDateString()));
 
-// 6. Body Stats & Mifflin-St Jeor Deficit Calculator
-toggleStatsBtn.addEventListener('click', () => {
-  statsPanel.style.display = statsPanel.style.display === 'none' ? 'block' : 'none';
-});
-
+// 10. Body Stats & Mifflin-St Jeor Deficit Calculator
 function populateStatsForm() {
   if (!userStats) return;
   document.getElementById('user-sex').value = userStats.sex;
@@ -172,11 +453,13 @@ statsForm.addEventListener('submit', (event) => {
   };
 
   localStorage.setItem('userBodyStats', JSON.stringify(userStats));
+  postToCloud({ action: 'saveStats', stats: userStats });
   statsPanel.style.display = 'none';
   updateUI();
+  showToast('Body stats saved & synced.');
 });
 
-// 7. Meal-Tagged Food Directory & Recents
+// 11. Meal-Tagged Food Directory & Recents
 function updateMealTabLabel() {
   tabMealBtn.textContent = `For ${mealCategorySelect.value}`;
 }
@@ -237,6 +520,7 @@ function saveFoodToLibrary(item, mealTag) {
   }
 
   localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  postToCloud({ action: 'upsertFood', food: libraryEntry });
   renderSavedFoods(savedSearchInput.value);
 }
 
@@ -254,6 +538,7 @@ function toggleMealTagOnSaved(id) {
   }
 
   localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  postToCloud({ action: 'upsertFood', food: item });
   renderSavedFoods(savedSearchInput.value);
 }
 
@@ -278,6 +563,7 @@ function selectSavedFood(id) {
 function deleteSavedFood(id) {
   savedFoods = savedFoods.filter(f => f.id !== id);
   localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  postToCloud({ action: 'deleteFood', id });
   renderSavedFoods(savedSearchInput.value);
 }
 
@@ -346,7 +632,6 @@ savedSearchInput.addEventListener('input', (e) => {
   renderSavedFoods(e.target.value);
 });
 
-// Save to Directory Only button
 saveOnlyBtn.addEventListener('click', () => {
   const name = foodNameInput.value.trim();
   const cals = Number(caloriesInput.value);
@@ -369,7 +654,7 @@ saveOnlyBtn.addEventListener('click', () => {
   showToast(`Saved "${name}" to Directory under ${chosenMeal}.`);
 });
 
-// 8. Portion Basis Toggle & Live Scaling Calculation
+// 12. Portion Basis Toggle & Live Scaling Calculation
 function setBasis(basis) {
   currentBasis = basis;
   if (basis === '100g') {
@@ -418,7 +703,7 @@ function updateScaledPreview() {
   input.addEventListener('input', updateScaledPreview);
 });
 
-// 9. Log Food Entry & Auto-Save to Directory with Meal Tag
+// 13. Log Food Entry, Save to Directory & Sync to Google Sheets
 foodForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const scaled = getScaledMacros();
@@ -438,6 +723,7 @@ foodForm.addEventListener('submit', (event) => {
   const newEntry = {
     id: Date.now(),
     date: selectedDate,
+    time: getLocalTimeString(),
     meal: chosenMeal,
     name: baseFoodData.name,
     portionText: scaled.portionText,
@@ -449,7 +735,8 @@ foodForm.addEventListener('submit', (event) => {
 
   foodEntries.push(newEntry);
   saveAndRender();
-  showToast(`Logged "${baseFoodData.name}" to ${chosenMeal} & saved to Directory.`);
+  postToCloud({ action: 'addEntry', entry: newEntry });
+  showToast(`Logged "${baseFoodData.name}" to ${chosenMeal}.`);
 
   foodForm.reset();
   mealCategorySelect.value = chosenMeal;
@@ -457,7 +744,7 @@ foodForm.addEventListener('submit', (event) => {
   setBasis(currentBasis);
 });
 
-// 10. Open Food Facts Barcode Scanner
+// 14. Open Food Facts Barcode Scanner
 async function fetchProductByBarcode(barcode) {
   try {
     const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`;
@@ -520,10 +807,11 @@ function stopScanner() {
   scanBtn.textContent = 'Scan Barcode';
 }
 
-// 11. Delete & Render Filtered Day Meals + Deficit Status
+// 15. Delete & Render Filtered Day Meals + Deficit Status
 function deleteEntry(id) {
   foodEntries = foodEntries.filter(entry => entry.id !== id);
   saveAndRender();
+  postToCloud({ action: 'deleteEntry', id });
 }
 
 function saveAndRender() {
@@ -618,7 +906,7 @@ function updateUI() {
   });
 }
 
-// 12. Register Service Worker
+// 16. Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
