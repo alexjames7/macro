@@ -1,15 +1,33 @@
-// 1. State Variables
+// 1. Date Helper (Local YYYY-MM-DD)
+function getLocalDateString(dateObj = new Date()) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 2. State Variables
 let foodEntries = [];
+let savedFoods = [];
 let userStats = null;
+let selectedDate = getLocalDateString();
 let currentBasis = '100g'; // '100g' or 'item'
 let html5QrcodeScanner = null;
 
 const MEAL_CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'];
 
-// 2. DOM Elements
+// 3. DOM Elements
 const toggleStatsBtn = document.getElementById('toggle-stats-btn');
 const statsPanel = document.getElementById('stats-panel');
 const statsForm = document.getElementById('stats-form');
+
+const prevDateBtn = document.getElementById('prev-date-btn');
+const nextDateBtn = document.getElementById('next-date-btn');
+const datePicker = document.getElementById('date-picker');
+const todayBtn = document.getElementById('today-btn');
+
+const savedSearchInput = document.getElementById('saved-search');
+const savedFoodsListEl = document.getElementById('saved-foods-list');
 
 const foodForm = document.getElementById('food-form');
 const mealCategorySelect = document.getElementById('meal-category');
@@ -28,13 +46,34 @@ const scaledPreviewEl = document.getElementById('scaled-preview');
 
 const scanBtn = document.getElementById('scan-btn');
 const readerDiv = document.getElementById('reader');
+const mealsHeading = document.getElementById('meals-heading');
 const groupedMealsContainer = document.getElementById('grouped-meals-container');
 
-// 3. Load Saved Data on Startup
+// 4. Load Saved Data on Startup
 function initApp() {
+  const today = getLocalDateString();
+  selectedDate = today;
+  datePicker.value = selectedDate;
+
   const savedEntries = localStorage.getItem('macroEntries');
   if (savedEntries) {
     foodEntries = JSON.parse(savedEntries);
+    // Tag any legacy Update 1 entries without a date so they remain visible
+    let migrated = false;
+    foodEntries.forEach(entry => {
+      if (!entry.date) {
+        entry.date = today;
+        migrated = true;
+      }
+    });
+    if (migrated) {
+      localStorage.setItem('macroEntries', JSON.stringify(foodEntries));
+    }
+  }
+
+  const storedLibrary = localStorage.getItem('savedFoodLibrary');
+  if (storedLibrary) {
+    savedFoods = JSON.parse(storedLibrary);
   }
 
   const savedStats = localStorage.getItem('userBodyStats');
@@ -42,14 +81,33 @@ function initApp() {
     userStats = JSON.parse(savedStats);
     populateStatsForm();
   } else {
-    // Show body stats setup on first launch
     statsPanel.style.display = 'block';
   }
 
+  renderSavedFoods();
   updateUI();
 }
 
-// 4. Body Stats & Mifflin-St Jeor Deficit Calculator
+// 5. Date Navigation & Daily Reset Logic
+function setSelectedDate(newDateStr) {
+  if (!newDateStr) return;
+  selectedDate = newDateStr;
+  datePicker.value = selectedDate;
+  updateUI();
+}
+
+function shiftDate(days) {
+  const [y, m, d] = selectedDate.split('-').map(Number);
+  const shifted = new Date(y, m - 1, d + days);
+  setSelectedDate(getLocalDateString(shifted));
+}
+
+prevDateBtn.addEventListener('click', () => shiftDate(-1));
+nextDateBtn.addEventListener('click', () => shiftDate(1));
+datePicker.addEventListener('change', (e) => setSelectedDate(e.target.value));
+todayBtn.addEventListener('click', () => setSelectedDate(getLocalDateString()));
+
+// 6. Body Stats & Mifflin-St Jeor Deficit Calculator
 toggleStatsBtn.addEventListener('click', () => {
   statsPanel.style.display = statsPanel.style.display === 'none' ? 'block' : 'none';
 });
@@ -66,7 +124,6 @@ function populateStatsForm() {
 }
 
 function calculateTargets(stats) {
-  // Mifflin-St Jeor BMR formula
   let bmr = (10 * stats.weight) + (6.25 * stats.height) - (5 * stats.age);
   bmr += stats.sex === 'male' ? 5 : -161;
 
@@ -99,7 +156,104 @@ statsForm.addEventListener('submit', (event) => {
   updateUI();
 });
 
-// 5. Portion Basis Toggle & Live Scaling Calculation
+// 7. Auto-Saved Food Library (Deduplication, Search & Quick-Fill)
+function saveFoodToLibrary(item) {
+  const cleanName = item.name.trim();
+  if (!cleanName) return;
+
+  const existingIndex = savedFoods.findIndex(
+    f => f.name.toLowerCase() === cleanName.toLowerCase() && f.basis === item.basis
+  );
+
+  const libraryEntry = {
+    id: existingIndex !== -1 ? savedFoods[existingIndex].id : Date.now(),
+    name: cleanName,
+    basis: item.basis,
+    calories: item.calories,
+    protein: item.protein,
+    carbs: item.carbs,
+    fat: item.fat,
+    lastUsed: Date.now()
+  };
+
+  if (existingIndex !== -1) {
+    savedFoods.splice(existingIndex, 1);
+  }
+
+  // Place most recently used item at the top
+  savedFoods.unshift(libraryEntry);
+
+  // Keep library tidy (up to 200 items)
+  if (savedFoods.length > 200) {
+    savedFoods = savedFoods.slice(0, 200);
+  }
+
+  localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  renderSavedFoods(savedSearchInput.value);
+}
+
+function selectSavedFood(id) {
+  const item = savedFoods.find(f => f.id === id);
+  if (!item) return;
+
+  setBasis(item.basis);
+  foodNameInput.value = item.name;
+  caloriesInput.value = item.calories;
+  proteinInput.value = item.protein;
+  carbsInput.value = item.carbs;
+  fatInput.value = item.fat;
+
+  // Clear portion so user enters today's weight/count immediately
+  portionAmountInput.value = '';
+  portionAmountInput.focus();
+  updateScaledPreview();
+}
+
+function deleteSavedFood(id) {
+  savedFoods = savedFoods.filter(f => f.id !== id);
+  localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  renderSavedFoods(savedSearchInput.value);
+}
+
+function renderSavedFoods(filterQuery = '') {
+  savedFoodsListEl.innerHTML = '';
+  const query = filterQuery.trim().toLowerCase();
+
+  const matches = query
+    ? savedFoods.filter(f => f.name.toLowerCase().includes(query))
+    : savedFoods.slice(0, 8); // Show 8 most recent items by default
+
+  if (matches.length === 0) {
+    const emptyMsg = document.createElement('p');
+    emptyMsg.style.cssText = 'font-size: 0.78rem; color: var(--text-muted); padding: 4px 0;';
+    emptyMsg.textContent = savedFoods.length === 0
+      ? 'Foods you log or scan will save here automatically for quick reuse.'
+      : 'No matching saved foods found.';
+    savedFoodsListEl.appendChild(emptyMsg);
+    return;
+  }
+
+  matches.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'saved-item';
+    const unitLabel = item.basis === '100g' ? 'per 100g' : 'per item';
+
+    row.innerHTML = `
+      <div class="saved-item-info" onclick="selectSavedFood(${item.id})">
+        <strong>${item.name}</strong>
+        <small>${item.calories} kcal (${unitLabel}) • P: ${item.protein}g • C: ${item.carbs}g • F: ${item.fat}g</small>
+      </div>
+      <button type="button" class="saved-remove-btn" title="Remove from saved" onclick="deleteSavedFood(${item.id})">×</button>
+    `;
+    savedFoodsListEl.appendChild(row);
+  });
+}
+
+savedSearchInput.addEventListener('input', (e) => {
+  renderSavedFoods(e.target.value);
+});
+
+// 8. Portion Basis Toggle & Live Scaling Calculation
 function setBasis(basis) {
   currentBasis = basis;
   if (basis === '100g') {
@@ -144,20 +298,32 @@ function updateScaledPreview() {
   scaledPreviewEl.textContent = `Logging: ${scaled.calories} kcal | P: ${scaled.protein}g | C: ${scaled.carbs}g | F: ${scaled.fat}g`;
 }
 
-// Listen for live typing on macro and portion fields
 [caloriesInput, proteinInput, carbsInput, fatInput, portionAmountInput].forEach(input => {
   input.addEventListener('input', updateScaledPreview);
 });
 
-// 6. Log Food Entry
+// 9. Log Food Entry & Auto-Save to Library
 foodForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const scaled = getScaledMacros();
 
+  const baseFoodData = {
+    name: foodNameInput.value.trim(),
+    basis: currentBasis,
+    calories: Number(caloriesInput.value) || 0,
+    protein: Number(proteinInput.value) || 0,
+    carbs: Number(carbsInput.value) || 0,
+    fat: Number(fatInput.value) || 0
+  };
+
+  // Auto-save base nutrition values to library
+  saveFoodToLibrary(baseFoodData);
+
   const newEntry = {
     id: Date.now(),
+    date: selectedDate,
     meal: mealCategorySelect.value,
-    name: foodNameInput.value.trim(),
+    name: baseFoodData.name,
     portionText: scaled.portionText,
     calories: scaled.calories,
     protein: scaled.protein,
@@ -168,14 +334,13 @@ foodForm.addEventListener('submit', (event) => {
   foodEntries.push(newEntry);
   saveAndRender();
 
-  // Keep selected meal category, reset food fields
   const currentMeal = mealCategorySelect.value;
   foodForm.reset();
   mealCategorySelect.value = currentMeal;
   setBasis(currentBasis);
 });
 
-// 7. Open Food Facts Barcode Scanner
+// 10. Open Food Facts Barcode Scanner
 async function fetchProductByBarcode(barcode) {
   try {
     const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`;
@@ -186,7 +351,6 @@ async function fetchProductByBarcode(barcode) {
       const product = data.product;
       const nutriments = product.nutriments || {};
 
-      // Switch to per 100g mode automatically
       setBasis('100g');
 
       foodNameInput.value = product.product_name || 'Scanned Product';
@@ -195,7 +359,6 @@ async function fetchProductByBarcode(barcode) {
       carbsInput.value = (nutriments.carbohydrates_100g || 0).toFixed(1);
       fatInput.value = (nutriments.fat_100g || 0).toFixed(1);
 
-      // Prompt user to enter actual portion weight eaten
       portionAmountInput.value = '';
       portionAmountInput.focus();
       updateScaledPreview();
@@ -239,7 +402,7 @@ function stopScanner() {
   scanBtn.textContent = 'Scan Barcode';
 }
 
-// 8. Delete & Render Grouped Meals + Deficit Status
+// 11. Delete & Render Filtered Day Meals + Deficit Status
 function deleteEntry(id) {
   foodEntries = foodEntries.filter(entry => entry.id !== id);
   saveAndRender();
@@ -251,25 +414,30 @@ function saveAndRender() {
 }
 
 function updateUI() {
+  const isToday = selectedDate === getLocalDateString();
+  todayBtn.style.display = isToday ? 'none' : 'inline-block';
+  mealsHeading.textContent = isToday ? "Today's Meals" : `Meals for ${selectedDate}`;
+
+  // Filter entries strictly for the active date
+  const dayEntries = foodEntries.filter(entry => entry.date === selectedDate);
+
   let caloriesSum = 0;
   let proteinSum = 0;
   let carbsSum = 0;
   let fatSum = 0;
 
-  foodEntries.forEach(entry => {
+  dayEntries.forEach(entry => {
     caloriesSum += entry.calories;
     proteinSum += entry.protein;
     carbsSum += entry.carbs;
     fatSum += entry.fat;
   });
 
-  // Update main dashboard figures
   document.getElementById('total-calories').textContent = Math.round(caloriesSum);
   document.getElementById('total-protein').textContent = `${proteinSum.toFixed(1)}g`;
   document.getElementById('total-carbs').textContent = `${carbsSum.toFixed(1)}g`;
   document.getElementById('total-fat').textContent = `${fatSum.toFixed(1)}g`;
 
-  // Update targets and live deficit banner if body stats exist
   const deficitBanner = document.getElementById('deficit-banner');
   if (userStats) {
     const targets = calculateTargets(userStats);
@@ -290,16 +458,15 @@ function updateUI() {
     }
   }
 
-  // Render meals grouped by category
   groupedMealsContainer.innerHTML = '';
 
-  if (foodEntries.length === 0) {
-    groupedMealsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No food logged today yet.</p>';
+  if (dayEntries.length === 0) {
+    groupedMealsContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No food logged for ${isToday ? 'today' : selectedDate}.</p>`;
     return;
   }
 
   MEAL_CATEGORIES.forEach(category => {
-    const categoryItems = foodEntries.filter(item => (item.meal || 'Snack') === category);
+    const categoryItems = dayEntries.filter(item => (item.meal || 'Snack') === category);
     if (categoryItems.length === 0) return;
 
     const mealCals = categoryItems.reduce((sum, item) => sum + item.calories, 0);
@@ -334,7 +501,7 @@ function updateUI() {
   });
 }
 
-// 9. Register Service Worker
+// 12. Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
