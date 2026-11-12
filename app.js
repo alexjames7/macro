@@ -12,6 +12,7 @@ let savedFoods = [];
 let userStats = null;
 let selectedDate = getLocalDateString();
 let currentBasis = '100g'; // '100g' or 'item'
+let libraryTab = 'meal'; // 'meal', 'recent', or 'all'
 let html5QrcodeScanner = null;
 
 const MEAL_CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'];
@@ -26,6 +27,9 @@ const nextDateBtn = document.getElementById('next-date-btn');
 const datePicker = document.getElementById('date-picker');
 const todayBtn = document.getElementById('today-btn');
 
+const tabMealBtn = document.getElementById('tab-meal-btn');
+const tabRecentBtn = document.getElementById('tab-recent-btn');
+const tabAllBtn = document.getElementById('tab-all-btn');
 const savedSearchInput = document.getElementById('saved-search');
 const savedFoodsListEl = document.getElementById('saved-foods-list');
 
@@ -58,7 +62,6 @@ function initApp() {
   const savedEntries = localStorage.getItem('macroEntries');
   if (savedEntries) {
     foodEntries = JSON.parse(savedEntries);
-    // Tag any legacy Update 1 entries without a date so they remain visible
     let migrated = false;
     foodEntries.forEach(entry => {
       if (!entry.date) {
@@ -73,7 +76,10 @@ function initApp() {
 
   const storedLibrary = localStorage.getItem('savedFoodLibrary');
   if (storedLibrary) {
-    savedFoods = JSON.parse(storedLibrary);
+    savedFoods = JSON.parse(storedLibrary).map(item => ({
+      ...item,
+      meals: Array.isArray(item.meals) ? item.meals : []
+    }));
   }
 
   const savedStats = localStorage.getItem('userBodyStats');
@@ -84,6 +90,7 @@ function initApp() {
     statsPanel.style.display = 'block';
   }
 
+  updateMealTabLabel();
   renderSavedFoods();
   updateUI();
 }
@@ -156,14 +163,43 @@ statsForm.addEventListener('submit', (event) => {
   updateUI();
 });
 
-// 7. Auto-Saved Food Library (Deduplication, Search & Quick-Fill)
-function saveFoodToLibrary(item) {
+// 7. Meal-Tagged Food Directory & Recents
+function updateMealTabLabel() {
+  tabMealBtn.textContent = `For ${mealCategorySelect.value}`;
+}
+
+function setLibraryTab(tab) {
+  libraryTab = tab;
+  tabMealBtn.classList.toggle('active', tab === 'meal');
+  tabRecentBtn.classList.toggle('active', tab === 'recent');
+  tabAllBtn.classList.toggle('active', tab === 'all');
+  renderSavedFoods(savedSearchInput.value);
+}
+
+tabMealBtn.addEventListener('click', () => setLibraryTab('meal'));
+tabRecentBtn.addEventListener('click', () => setLibraryTab('recent'));
+tabAllBtn.addEventListener('click', () => setLibraryTab('all'));
+
+mealCategorySelect.addEventListener('change', () => {
+  updateMealTabLabel();
+  setLibraryTab('meal');
+});
+
+function saveFoodToLibrary(item, mealTag) {
   const cleanName = item.name.trim();
   if (!cleanName) return;
 
   const existingIndex = savedFoods.findIndex(
     f => f.name.toLowerCase() === cleanName.toLowerCase() && f.basis === item.basis
   );
+
+  let updatedMeals = [];
+  if (existingIndex !== -1 && Array.isArray(savedFoods[existingIndex].meals)) {
+    updatedMeals = [...savedFoods[existingIndex].meals];
+  }
+  if (mealTag && !updatedMeals.includes(mealTag)) {
+    updatedMeals.push(mealTag);
+  }
 
   const libraryEntry = {
     id: existingIndex !== -1 ? savedFoods[existingIndex].id : Date.now(),
@@ -173,6 +209,7 @@ function saveFoodToLibrary(item) {
     protein: item.protein,
     carbs: item.carbs,
     fat: item.fat,
+    meals: updatedMeals,
     lastUsed: Date.now()
   };
 
@@ -180,12 +217,27 @@ function saveFoodToLibrary(item) {
     savedFoods.splice(existingIndex, 1);
   }
 
-  // Place most recently used item at the top
   savedFoods.unshift(libraryEntry);
 
-  // Keep library tidy (up to 200 items)
-  if (savedFoods.length > 200) {
-    savedFoods = savedFoods.slice(0, 200);
+  if (savedFoods.length > 250) {
+    savedFoods = savedFoods.slice(0, 250);
+  }
+
+  localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
+  renderSavedFoods(savedSearchInput.value);
+}
+
+function toggleMealTagOnSaved(id) {
+  const item = savedFoods.find(f => f.id === id);
+  if (!item) return;
+
+  const activeMeal = mealCategorySelect.value;
+  if (!Array.isArray(item.meals)) item.meals = [];
+
+  if (item.meals.includes(activeMeal)) {
+    item.meals = item.meals.filter(m => m !== activeMeal);
+  } else {
+    item.meals.push(activeMeal);
   }
 
   localStorage.setItem('savedFoodLibrary', JSON.stringify(savedFoods));
@@ -203,7 +255,6 @@ function selectSavedFood(id) {
   carbsInput.value = item.carbs;
   fatInput.value = item.fat;
 
-  // Clear portion so user enters today's weight/count immediately
   portionAmountInput.value = '';
   portionAmountInput.focus();
   updateScaledPreview();
@@ -218,32 +269,57 @@ function deleteSavedFood(id) {
 function renderSavedFoods(filterQuery = '') {
   savedFoodsListEl.innerHTML = '';
   const query = filterQuery.trim().toLowerCase();
+  const activeMeal = mealCategorySelect.value;
 
-  const matches = query
-    ? savedFoods.filter(f => f.name.toLowerCase().includes(query))
-    : savedFoods.slice(0, 8); // Show 8 most recent items by default
+  let list = [...savedFoods];
 
-  if (matches.length === 0) {
+  if (query) {
+    list = list.filter(f => f.name.toLowerCase().includes(query));
+  } else if (libraryTab === 'meal') {
+    list = list.filter(f => Array.isArray(f.meals) && f.meals.includes(activeMeal));
+  } else if (libraryTab === 'recent') {
+    list = list.slice(0, 8);
+  } else if (libraryTab === 'all') {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  if (list.length === 0) {
     const emptyMsg = document.createElement('p');
     emptyMsg.style.cssText = 'font-size: 0.78rem; color: var(--text-muted); padding: 4px 0;';
-    emptyMsg.textContent = savedFoods.length === 0
-      ? 'Foods you log or scan will save here automatically for quick reuse.'
-      : 'No matching saved foods found.';
+    if (savedFoods.length === 0) {
+      emptyMsg.textContent = 'Foods you log or scan save here automatically for quick reuse.';
+    } else if (libraryTab === 'meal' && !query) {
+      emptyMsg.textContent = `No foods tagged for ${activeMeal} yet. Log one or tap Directory to tag existing items.`;
+    } else {
+      emptyMsg.textContent = 'No matching foods found.';
+    }
     savedFoodsListEl.appendChild(emptyMsg);
     return;
   }
 
-  matches.forEach(item => {
+  list.forEach(item => {
     const row = document.createElement('div');
     row.className = 'saved-item';
     const unitLabel = item.basis === '100g' ? 'per 100g' : 'per item';
+    const tagsHtml = (item.meals || [])
+      .map(m => `<span class="meal-tag-pill">${m}</span>`)
+      .join('');
+    const hasCurrentMealTag = (item.meals || []).includes(activeMeal);
 
     row.innerHTML = `
       <div class="saved-item-info" onclick="selectSavedFood(${item.id})">
-        <strong>${item.name}</strong>
+        <div class="saved-item-title-row">
+          <strong>${item.name}</strong>
+          ${tagsHtml}
+        </div>
         <small>${item.calories} kcal (${unitLabel}) • P: ${item.protein}g • C: ${item.carbs}g • F: ${item.fat}g</small>
       </div>
-      <button type="button" class="saved-remove-btn" title="Remove from saved" onclick="deleteSavedFood(${item.id})">×</button>
+      <div class="saved-actions">
+        <button type="button" class="tag-edit-btn" title="Tag or untag for ${activeMeal}" onclick="toggleMealTagOnSaved(${item.id})">
+          ${hasCurrentMealTag ? `-${activeMeal}` : `+${activeMeal}`}
+        </button>
+        <button type="button" class="saved-remove-btn" title="Remove from directory" onclick="deleteSavedFood(${item.id})">×</button>
+      </div>
     `;
     savedFoodsListEl.appendChild(row);
   });
@@ -302,10 +378,11 @@ function updateScaledPreview() {
   input.addEventListener('input', updateScaledPreview);
 });
 
-// 9. Log Food Entry & Auto-Save to Library
+// 9. Log Food Entry & Auto-Save to Directory with Meal Tag
 foodForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const scaled = getScaledMacros();
+  const chosenMeal = mealCategorySelect.value;
 
   const baseFoodData = {
     name: foodNameInput.value.trim(),
@@ -316,13 +393,12 @@ foodForm.addEventListener('submit', (event) => {
     fat: Number(fatInput.value) || 0
   };
 
-  // Auto-save base nutrition values to library
-  saveFoodToLibrary(baseFoodData);
+  saveFoodToLibrary(baseFoodData, chosenMeal);
 
   const newEntry = {
     id: Date.now(),
     date: selectedDate,
-    meal: mealCategorySelect.value,
+    meal: chosenMeal,
     name: baseFoodData.name,
     portionText: scaled.portionText,
     calories: scaled.calories,
@@ -334,9 +410,9 @@ foodForm.addEventListener('submit', (event) => {
   foodEntries.push(newEntry);
   saveAndRender();
 
-  const currentMeal = mealCategorySelect.value;
   foodForm.reset();
-  mealCategorySelect.value = currentMeal;
+  mealCategorySelect.value = chosenMeal;
+  updateMealTabLabel();
   setBasis(currentBasis);
 });
 
@@ -418,7 +494,6 @@ function updateUI() {
   todayBtn.style.display = isToday ? 'none' : 'inline-block';
   mealsHeading.textContent = isToday ? "Today's Meals" : `Meals for ${selectedDate}`;
 
-  // Filter entries strictly for the active date
   const dayEntries = foodEntries.filter(entry => entry.date === selectedDate);
 
   let caloriesSum = 0;

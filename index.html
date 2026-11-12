@@ -183,7 +183,7 @@
       color: var(--warning-text);
     }
 
-    /* Saved Foods Library */
+    /* Food Directory & Recents */
     .saved-foods-box {
       background: var(--bg-colour);
       padding: 12px;
@@ -192,24 +192,41 @@
       border: 1px solid var(--border-colour);
     }
 
-    .saved-foods-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .library-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      background: #e2e8f0;
+      padding: 3px;
+      border-radius: 7px;
       margin-bottom: 8px;
     }
 
-    .saved-foods-header span {
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--text-main);
+    .lib-tab-btn {
+      padding: 6px 4px;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lib-tab-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     }
 
     .saved-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      max-height: 170px;
+      max-height: 195px;
       overflow-y: auto;
       margin-top: 8px;
     }
@@ -218,6 +235,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       background: var(--card-bg);
       padding: 8px 10px;
       border-radius: 6px;
@@ -229,27 +247,62 @@
       cursor: pointer;
     }
 
+    .saved-item-title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
     .saved-item-info strong {
-      display: block;
       font-size: 0.86rem;
       color: var(--text-main);
     }
 
+    .meal-tag-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid #bfdbfe;
+    }
+
     .saved-item-info small {
-      font-size: 0.75rem;
+      display: block;
+      font-size: 0.74rem;
       color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .saved-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tag-edit-btn {
+      background: var(--bg-colour);
+      border: 1px solid var(--border-colour);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
     }
 
     .saved-remove-btn {
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 1rem;
+      font-size: 1.05rem;
       padding: 2px 6px;
       cursor: pointer;
     }
 
-    /* Forms & Inputs (16px prevents iOS Safari zoom) */
+    /* Forms & Inputs */
     .form-group {
       margin-bottom: 12px;
     }
@@ -518,15 +571,6 @@
   <section class="card">
     <h2 style="margin-bottom: 12px;">Log Food Item</h2>
 
-    <!-- Auto-Saved Food Library -->
-    <div class="saved-foods-box">
-      <div class="saved-foods-header">
-        <span>Saved Foods (Tap to Quick-Fill)</span>
-      </div>
-      <input type="search" id="saved-search" placeholder="Search previous items...">
-      <div id="saved-foods-list" class="saved-list"></div>
-    </div>
-
     <form id="food-form">
       <div class="input-grid">
         <div class="form-group">
@@ -543,6 +587,17 @@
           <label for="food-name">Food Name</label>
           <input type="text" id="food-name" placeholder="e.g. Chicken Breast" required>
         </div>
+      </div>
+
+      <!-- Smart Meal Directory & Recents -->
+      <div class="saved-foods-box">
+        <div class="library-tabs">
+          <button type="button" id="tab-meal-btn" class="lib-tab-btn active">For Breakfast</button>
+          <button type="button" id="tab-recent-btn" class="lib-tab-btn">Recents</button>
+          <button type="button" id="tab-all-btn" class="lib-tab-btn">Directory</button>
+        </div>
+        <input type="search" id="saved-search" placeholder="Search saved foods...">
+        <div id="saved-foods-list" class="saved-list"></div>
       </div>
 
       <!-- Portion Basis Switch -->
