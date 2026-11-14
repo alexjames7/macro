@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Personal Macro Tracker</title>
 
   <!-- PWA Configuration -->
@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046784.png">
 
   <!-- Barcode Scanner & Tesseract OCR Libraries -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
@@ -30,11 +30,13 @@
       --warning: #ef4444;
       --warning-bg: #fef2f2;
       --warning-text: #b91c1c;
+      --amber: #f59e0b;
       --text-main: #0f172a;
       --text-muted: #64748b;
       --border-colour: #e2e8f0;
       --track-bg: #e2e8f0;
       --input-bg: #ffffff;
+      --nav-bg: rgba(255, 255, 255, 0.94);
     }
 
     [data-theme="dark"] {
@@ -50,11 +52,13 @@
       --warning: #ef4444;
       --warning-bg: rgba(239, 68, 68, 0.16);
       --warning-text: #f87171;
+      --amber: #fbbf24;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --border-colour: #26334d;
       --track-bg: #26334d;
       --input-bg: #0f172a;
+      --nav-bg: rgba(21, 31, 50, 0.94);
     }
 
     * {
@@ -67,57 +71,100 @@
     body {
       background-color: var(--bg-colour);
       color: var(--text-main);
-      padding: 14px;
-      max-width: 600px;
-      margin: 0 auto;
-      padding-bottom: 48px;
       transition: background-color 0.2s ease, color 0.2s ease;
+      padding-bottom: calc(82px + env(safe-area-inset-bottom));
     }
 
-    /* Top Header Bar */
-    .top-bar {
+    /* App Shell: Mobile Bottom Nav -> Desktop Sidebar + 1140px Workspace */
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(64px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border-colour);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      z-index: 100;
+    }
+
+    .sidebar-brand, .sidebar-footer {
+      display: none;
+    }
+
+    .nav-item {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .nav-item svg {
+      width: 21px;
+      height: 21px;
+      stroke-width: 2.1;
+    }
+
+    .nav-item.active {
+      color: var(--primary);
+    }
+
+    .main-viewport {
+      flex: 1;
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    /* Mobile Header */
+    .mobile-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      margin-bottom: 14px;
     }
 
-    h1 {
+    .mobile-header h1 {
       font-size: 1.25rem;
       letter-spacing: -0.01em;
     }
 
-    h2 {
-      font-size: 1.02rem;
-    }
-
-    .top-actions {
+    .header-controls {
       display: flex;
       align-items: center;
-      gap: 5px;
-      flex-wrap: wrap;
+      gap: 7px;
     }
 
-    .btn-outline {
-      background: var(--card-bg);
-      color: var(--text-main);
-      border: 1px solid var(--border-colour);
-      padding: 6px 9px;
-      border-radius: 8px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
+    .sync-pill {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-    }
-
-    .btn-outline.active-pill {
-      border-color: var(--primary);
-      color: var(--primary);
-      background: var(--primary-light);
+      gap: 5px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-colour);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
     }
 
     .sync-dot {
@@ -132,21 +179,143 @@
     .sync-dot.syncing { background-color: #f59e0b; }
     .sync-dot.error { background-color: #ef4444; }
 
+    .btn-outline {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-colour);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Tab Views */
+    .tab-view {
+      display: none;
+    }
+
+    .tab-view.active {
+      display: block;
+    }
+
+    /* Desktop Breakpoint (860px+) */
+    @media (min-width: 860px) {
+      body {
+        padding-bottom: 24px;
+      }
+
+      .mobile-header {
+        display: none;
+      }
+
+      .nav-bar {
+        top: 0;
+        bottom: 0;
+        right: auto;
+        width: 230px;
+        height: 100vh;
+        padding: 22px 14px;
+        border-top: none;
+        border-right: 1px solid var(--border-colour);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 6px;
+      }
+
+      .sidebar-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 4px 10px 18px;
+        border-bottom: 1px solid var(--border-colour);
+        margin-bottom: 10px;
+      }
+
+      .sidebar-brand h1 {
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+      }
+
+      .sidebar-brand span {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+      }
+
+      .nav-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 11px;
+        padding: 11px 12px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+      }
+
+      .nav-item:hover {
+        background: var(--surface-subtle);
+      }
+
+      .nav-item.active {
+        background: var(--primary-light);
+      }
+
+      .sidebar-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-colour);
+      }
+
+      .main-viewport {
+        margin-left: 230px;
+        max-width: 1140px;
+        padding: 24px 28px;
+      }
+
+      .desktop-split-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .desktop-equal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .desktop-sticky-col {
+        position: sticky;
+        top: 24px;
+      }
+    }
+
+    /* Cards & Typography */
     .card {
       background: var(--card-bg);
-      padding: 15px;
+      padding: 16px;
       border-radius: 12px;
       border: 1px solid var(--border-colour);
       margin-bottom: 14px;
     }
 
-    /* 7-Day Ring Strip & Streak Bar */
+    h2 {
+      font-size: 1.04rem;
+      margin-bottom: 4px;
+    }
+
+    /* 7-Day Ring Strip */
     .week-card {
       background: var(--card-bg);
-      padding: 10px 12px;
+      padding: 11px 13px;
       border-radius: 12px;
       border: 1px solid var(--border-colour);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .week-top-row {
@@ -169,7 +338,7 @@
       font-weight: 700;
       font-size: 0.85rem;
       color: var(--text-main);
-      padding: 4px 8px;
+      padding: 5px 8px;
       border-radius: 7px;
       width: auto;
     }
@@ -179,7 +348,7 @@
       color: var(--primary);
       border: 1px solid var(--primary-border);
       border-radius: 6px;
-      padding: 4px 8px;
+      padding: 5px 9px;
       font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
@@ -191,11 +360,10 @@
       gap: 4px;
       background: var(--surface-subtle);
       border: 1px solid var(--border-colour);
-      padding: 4px 9px;
+      padding: 4px 10px;
       border-radius: 999px;
       font-size: 0.78rem;
       font-weight: 700;
-      color: var(--text-main);
     }
 
     .week-strip {
@@ -224,15 +392,8 @@
       color: var(--primary);
     }
 
-    .day-ring-letter {
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-
-    .day-ring-num {
-      font-size: 0.68rem;
-      font-weight: 600;
-    }
+    .day-ring-letter { font-size: 0.72rem; font-weight: 700; }
+    .day-ring-num { font-size: 0.68rem; font-weight: 600; }
 
     .ring-svg {
       width: 30px;
@@ -240,25 +401,11 @@
       transform: rotate(-90deg);
     }
 
-    .ring-track {
-      fill: none;
-      stroke: var(--track-bg);
-      stroke-width: 3.2;
-    }
+    .ring-track { fill: none; stroke: var(--track-bg); stroke-width: 3.2; }
+    .ring-fill { fill: none; stroke: var(--primary); stroke-width: 3.2; stroke-linecap: round; transition: stroke-dashoffset 0.25s ease; }
+    .ring-fill.complete { stroke: var(--success); }
 
-    .ring-fill {
-      fill: none;
-      stroke: var(--primary);
-      stroke-width: 3.2;
-      stroke-linecap: round;
-      transition: stroke-dashoffset 0.25s ease;
-    }
-
-    .ring-fill.complete {
-      stroke: var(--success);
-    }
-
-    /* Split Hero Dashboard (MFP Style) */
+    /* Split Hero Dashboard */
     .hero-cal-card {
       background: var(--card-bg);
       padding: 15px;
@@ -275,7 +422,7 @@
     }
 
     .hero-cal-header span {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
@@ -287,7 +434,7 @@
       color: var(--primary);
       border: 1px solid var(--border-colour);
       border-radius: 6px;
-      padding: 3px 8px;
+      padding: 4px 8px;
       font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
@@ -313,7 +460,7 @@
     }
 
     .hero-cal-secondary {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 700;
       color: var(--text-muted);
     }
@@ -354,7 +501,7 @@
     }
 
     .macro-col h4 {
-      font-size: 0.74rem;
+      font-size: 0.73rem;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.03em;
@@ -362,14 +509,51 @@
     }
 
     .macro-col .macro-num {
-      font-size: 0.95rem;
+      font-size: 0.94rem;
       font-weight: 700;
     }
 
     .macro-col .macro-num small {
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 500;
       color: var(--text-muted);
+    }
+
+    /* NHS Guardrails Card (Sugars, Fibre, Salt) */
+    .nhs-card {
+      background: var(--card-bg);
+      padding: 12px 15px;
+      border-radius: 12px;
+      border: 1px solid var(--border-colour);
+      margin-bottom: 10px;
+    }
+
+    .nhs-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 9px;
+    }
+
+    .nhs-card-header span {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .nhs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .nhs-subtext {
+      display: block;
+      font-size: 0.69rem;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
 
     .deficit-banner {
@@ -393,390 +577,7 @@
       color: var(--warning-text);
     }
 
-    /* Insights Panel */
-    .insights-periods {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      margin: 10px 0 12px;
-    }
-
-    .period-btn {
-      padding: 6px;
-      border-radius: 7px;
-      border: 1px solid var(--border-colour);
-      background: var(--surface-subtle);
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .period-btn.active {
-      background: var(--primary);
-      color: #ffffff;
-      border-color: var(--primary);
-    }
-
-    .insights-kpis {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .kpi-box {
-      background: var(--surface-subtle);
-      border: 1px solid var(--border-colour);
-      border-radius: 8px;
-      padding: 9px 10px;
-    }
-
-    .kpi-box span {
-      display: block;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .kpi-box strong {
-      font-size: 1.05rem;
-      margin-top: 2px;
-      display: block;
-    }
-
-    .insight-bar-row {
-      margin-bottom: 9px;
-    }
-
-    .insight-bar-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: 3px;
-    }
-
-    /* Saved Directory, Presets & Recents */
-    .saved-foods-box {
-      background: var(--surface-subtle);
-      padding: 11px;
-      border-radius: 9px;
-      margin-bottom: 14px;
-      border: 1px solid var(--border-colour);
-    }
-
-    .saved-box-label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      margin-bottom: 8px;
-    }
-
-    .new-preset-trigger {
-      background: var(--primary-light);
-      color: var(--primary);
-      border: 1px solid var(--primary-border);
-      padding: 3px 8px;
-      border-radius: 5px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      cursor: pointer;
-      text-transform: none;
-    }
-
-    .library-tabs {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
-      background: var(--track-bg);
-      padding: 3px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-
-    .lib-tab-btn {
-      padding: 6px 3px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: transparent;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .lib-tab-btn.active {
-      background: var(--card-bg);
-      color: var(--primary);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-
-    .saved-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 210px;
-      overflow-y: auto;
-      margin-top: 8px;
-    }
-
-    .saved-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      background: var(--card-bg);
-      padding: 9px 10px;
-      border-radius: 7px;
-      border: 1px solid var(--border-colour);
-    }
-
-    .saved-item-info {
-      flex: 1;
-      cursor: pointer;
-    }
-
-    .saved-item-title-row {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .saved-item-info strong {
-      font-size: 0.86rem;
-      color: var(--text-main);
-    }
-
-    .meal-tag-pill {
-      font-size: 0.66rem;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 999px;
-      background: var(--primary-light);
-      color: var(--primary);
-      border: 1px solid var(--primary-border);
-    }
-
-    .preset-badge-pill {
-      font-size: 0.66rem;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 999px;
-      background: var(--success-bg);
-      color: var(--success-text);
-    }
-
-    .saved-item-info small {
-      display: block;
-      font-size: 0.73rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .saved-actions {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .tag-edit-btn {
-      background: var(--primary-light);
-      border: 1px solid var(--primary-border);
-      color: var(--primary);
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 4px 6px;
-      border-radius: 5px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .tag-edit-btn.tagged {
-      background: var(--success-bg);
-      border-color: transparent;
-      color: var(--success-text);
-    }
-
-    .saved-remove-btn {
-      background: var(--warning-bg);
-      border: none;
-      color: var(--warning-text);
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 4px 6px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    /* Meal Preset Builder */
-    .preset-builder {
-      display: none;
-      background: var(--card-bg);
-      border: 1px solid var(--primary-border);
-      border-radius: 8px;
-      padding: 10px;
-      margin-top: 8px;
-    }
-
-    .preset-ing-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.8rem;
-      padding: 5px 0;
-      border-bottom: 1px solid var(--border-colour);
-    }
-
-    .status-toast {
-      display: none;
-      background: var(--success-bg);
-      color: var(--success-text);
-      padding: 8px 12px;
-      border-radius: 7px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-
-    .ocr-box {
-      display: none;
-      background: var(--primary-light);
-      color: var(--primary);
-      border: 1px solid var(--primary-border);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 0.84rem;
-      font-weight: 600;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-
-    /* Forms & Inputs */
-    .form-group {
-      margin-bottom: 11px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: var(--text-main);
-    }
-
-    input, select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid var(--border-colour);
-      border-radius: 7px;
-      font-size: 16px;
-      background-color: var(--input-bg);
-      color: var(--text-main);
-    }
-
-    .input-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .basis-toggle {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      background: var(--surface-subtle);
-      padding: 4px;
-      border-radius: 8px;
-      margin-bottom: 11px;
-      border: 1px solid var(--border-colour);
-    }
-
-    .basis-btn {
-      padding: 7px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.83rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: transparent;
-      color: var(--text-muted);
-    }
-
-    .basis-btn.active {
-      background: var(--card-bg);
-      color: var(--primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    }
-
-    .preview-box {
-      background: var(--primary-light);
-      border: 1px dashed var(--primary-border);
-      padding: 9px 12px;
-      border-radius: 8px;
-      font-size: 0.84rem;
-      color: var(--primary);
-      font-weight: 600;
-      margin-bottom: 11px;
-      text-align: center;
-    }
-
-    .button-group {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .btn-primary, .btn-secondary, .btn-tertiary {
-      flex: 1;
-      padding: 11px 8px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background-color: var(--primary);
-      color: #ffffff;
-    }
-
-    .btn-secondary {
-      background-color: var(--primary-light);
-      color: var(--primary);
-      border: 1px solid var(--primary-border);
-    }
-
-    .btn-tertiary {
-      background-color: var(--surface-subtle);
-      color: var(--text-main);
-      border: 1px solid var(--border-colour);
-      width: 100%;
-      margin-top: 8px;
-      padding: 9px;
-      font-size: 0.83rem;
-    }
-
-    #reader {
-      width: 100%;
-      margin-bottom: 14px;
-      border-radius: 10px;
-      overflow: hidden;
-      display: none;
-    }
-
-    /* Interactive Meal Cards (Always Visible with + Log & Copy Prev) */
+    /* Interactive Meal & Drink Cards */
     .meal-card {
       background: var(--card-bg);
       border: 1px solid var(--border-colour);
@@ -793,12 +594,11 @@
     }
 
     .meal-title-block h3 {
-      font-size: 0.98rem;
-      color: var(--text-main);
+      font-size: 0.96rem;
     }
 
     .meal-title-block span {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: var(--text-muted);
       font-weight: 600;
     }
@@ -842,6 +642,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       padding: 8px 0;
       border-bottom: 1px solid var(--border-colour);
     }
@@ -851,15 +652,8 @@
       padding-bottom: 0;
     }
 
-    .food-info h4 {
-      font-size: 0.9rem;
-    }
-
-    .food-info p {
-      font-size: 0.76rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
+    .food-info h4 { font-size: 0.89rem; }
+    .food-info p { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
 
     .delete-btn {
       padding: 5px 9px;
@@ -872,12 +666,436 @@
       font-weight: 600;
     }
 
-    /* Weight History */
+    /* Directory, Presets & Recents */
+    .saved-box-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 9px;
+    }
+
+    .new-preset-trigger {
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid var(--primary-border);
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: none;
+    }
+
+    .library-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      background: var(--track-bg);
+      padding: 3px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .lib-tab-btn {
+      padding: 6px 3px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lib-tab-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .saved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .saved-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-subtle);
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-colour);
+    }
+
+    .saved-item-info { flex: 1; cursor: pointer; }
+    .saved-item-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+    .saved-item-info strong { font-size: 0.86rem; }
+    .saved-item-info small { display: block; font-size: 0.73rem; color: var(--text-muted); margin-top: 2px; }
+
+    .meal-tag-pill {
+      font-size: 0.66rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid var(--primary-border);
+    }
+
+    .preset-badge-pill {
+      font-size: 0.66rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .saved-actions { display: flex; align-items: center; gap: 4px; }
+
+    .tag-edit-btn {
+      background: var(--primary-light);
+      border: 1px solid var(--primary-border);
+      color: var(--primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 6px;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tag-edit-btn.tagged {
+      background: var(--success-bg);
+      border-color: transparent;
+      color: var(--success-text);
+    }
+
+    .saved-remove-btn {
+      background: var(--warning-bg);
+      border: none;
+      color: var(--warning-text);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 6px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    /* Meal Preset Builder */
+    .preset-builder {
+      display: none;
+      background: var(--surface-subtle);
+      border: 1px solid var(--primary-border);
+      border-radius: 9px;
+      padding: 11px;
+      margin-bottom: 10px;
+    }
+
+    .preset-ing-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-colour);
+    }
+
+    /* Forms & Inputs */
+    .form-group { margin-bottom: 10px; }
+
+    label {
+      display: block;
+      font-size: 0.79rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--border-colour);
+      border-radius: 7px;
+      font-size: 16px;
+      background-color: var(--input-bg);
+      color: var(--text-main);
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 9px;
+    }
+
+    .basis-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: var(--surface-subtle);
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border-colour);
+    }
+
+    .basis-btn {
+      padding: 7px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .basis-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    .free-sugar-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-colour);
+      border-radius: 7px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 0.79rem;
+      font-weight: 600;
+      height: 41px;
+      margin-top: 21px;
+    }
+
+    .free-sugar-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
+    .preview-box {
+      background: var(--primary-light);
+      border: 1px dashed var(--primary-border);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.81rem;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 11px;
+      text-align: center;
+      line-height: 1.45;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .btn-primary, .btn-secondary, .btn-tertiary {
+      flex: 1;
+      padding: 11px 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary { background-color: var(--primary); color: #ffffff; }
+    .btn-secondary { background-color: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); }
+    .btn-tertiary {
+      background-color: var(--surface-subtle);
+      color: var(--text-main);
+      border: 1px solid var(--border-colour);
+      width: 100%;
+      margin-top: 8px;
+      padding: 9px;
+      font-size: 0.82rem;
+    }
+
+    /* Unified Scan / Import Drawer Inside Log Card */
+    .scan-drawer {
+      display: none;
+      background: var(--surface-subtle);
+      border: 1px solid var(--primary-border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .scan-drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .scan-drawer-header strong {
+      font-size: 0.86rem;
+      color: var(--primary);
+    }
+
+    .dropzone-box {
+      border: 2px dashed var(--primary-border);
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 14px 10px;
+      text-align: center;
+      margin-top: 8px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .dropzone-box.dragover {
+      background: var(--primary-light);
+    }
+
+    .dropzone-box p {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .dropzone-box small {
+      display: block;
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    #unified-reader {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .status-toast {
+      display: none;
+      background: var(--success-bg);
+      color: var(--success-text);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .ocr-box {
+      display: none;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid var(--primary-border);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* Progress Tab Analytics */
+    .insights-periods {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin: 10px 0 14px;
+    }
+
+    .period-btn {
+      padding: 6px 4px;
+      border-radius: 7px;
+      border: 1px solid var(--border-colour);
+      background: var(--surface-subtle);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .period-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .insights-kpis {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-box {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-colour);
+      border-radius: 9px;
+      padding: 10px;
+    }
+
+    .kpi-box span {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .kpi-box strong {
+      font-size: 1.05rem;
+      margin-top: 2px;
+      display: block;
+    }
+
+    .kpi-box small {
+      display: block;
+      font-size: 0.71rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .insight-bar-row { margin-bottom: 9px; }
+
+    .insight-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.79rem;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .chart-box {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-colour);
+      border-radius: 9px;
+      padding: 10px;
+      margin-top: 12px;
+    }
+
     .weight-history-list {
       margin-top: 12px;
       border-top: 1px solid var(--border-colour);
       padding-top: 10px;
-      max-height: 160px;
+      max-height: 240px;
       overflow-y: auto;
     }
 
@@ -885,7 +1103,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 0;
+      padding: 7px 0;
       border-bottom: 1px solid var(--border-colour);
       font-size: 0.84rem;
     }
@@ -906,318 +1124,459 @@
 </head>
 <body>
 
-  <!-- Top Header Bar -->
-  <div class="top-bar">
-    <h1>Macro Tracker</h1>
-    <div class="top-actions">
-      <button type="button" id="toggle-insights-btn" class="btn-outline">Insights</button>
-      <button type="button" id="toggle-cloud-btn" class="btn-outline">
-        <span id="sync-dot" class="sync-dot"></span> Cloud
+  <div class="app-shell">
+    <!-- Responsive Navigation (Bottom Bar on Mobile, Left Sidebar on Desktop) -->
+    <nav class="nav-bar" aria-label="Main navigation">
+      <div class="sidebar-brand">
+        <h1>Macro Tracker</h1>
+        <span>Personal Nutrition & Deficit OS</span>
+      </div>
+
+      <button type="button" class="nav-item active" data-tab="today">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Today</span>
       </button>
-      <button type="button" id="toggle-weight-btn" class="btn-outline">Weight</button>
-      <button type="button" id="toggle-stats-btn" class="btn-outline">Stats</button>
-      <button type="button" id="theme-toggle-btn" class="btn-outline" aria-label="Toggle dark mode">Dark</button>
-    </div>
-  </div>
 
-  <!-- Collapsible Insights & Analytics Panel -->
-  <section id="insights-panel" class="card" style="display: none;">
-    <h2>Macro & Weight Insights</h2>
-    <div class="insights-periods">
-      <button type="button" class="period-btn active" data-days="7">7D</button>
-      <button type="button" class="period-btn" data-days="30">30D</button>
-      <button type="button" class="period-btn" data-days="90">90D</button>
-      <button type="button" class="period-btn" data-days="all">All</button>
-    </div>
-    <div id="insights-content"></div>
-  </section>
+      <button type="button" class="nav-item" data-tab="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span>Log</span>
+      </button>
 
-  <!-- Collapsible Cloud Sync & Excel/CSV Export Panel -->
-  <section id="cloud-panel" class="card" style="display: none;">
-    <h2>Google Sheets Cloud Sync & Backup</h2>
-    <p id="sync-status-text" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; margin-bottom: 10px;">
-      Not connected. Paste your Google Apps Script Web App URL below to sync across devices.
-    </p>
-    <div class="form-group">
-      <label for="cloud-url-input">Apps Script Web App URL</label>
-      <input type="url" id="cloud-url-input" placeholder="https://script.google.com/macros/s/.../exec">
-    </div>
-    <div class="button-group">
-      <button type="button" id="save-cloud-url-btn" class="btn-primary">Connect & Sync</button>
-      <button type="button" id="sync-now-btn" class="btn-secondary">Sync Now</button>
-    </div>
-    <div class="button-group">
-      <button type="button" id="push-all-btn" class="btn-tertiary" style="margin-top: 0;">Push Local Data to Sheet</button>
-      <button type="button" id="export-csv-btn" class="btn-tertiary" style="margin-top: 0;">Download CSV (Excel)</button>
-    </div>
-  </section>
+      <button type="button" class="nav-item" data-tab="progress">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Progress</span>
+      </button>
 
-  <!-- Collapsible Quick Body Weight Logger -->
-  <section id="weight-panel" class="card" style="display: none;">
-    <h2>Log Body Weight</h2>
-    <form id="weight-form" style="margin-top: 10px;">
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="weigh-in-value">Weight (kg)</label>
-          <input type="number" id="weigh-in-value" step="0.1" placeholder="85.0" required>
-        </div>
-        <div class="form-group">
-          <label for="weigh-in-note">Note (optional)</label>
-          <input type="text" id="weigh-in-note" placeholder="e.g. Morning fasted">
-        </div>
+      <button type="button" class="nav-item" data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+
+      <div class="sidebar-footer">
+        <button type="button" id="desktop-sync-pill" class="sync-pill" style="justify-content: center;">
+          <span class="sync-dot" id="desktop-sync-dot"></span>
+          <span id="desktop-sync-label">Offline</span>
+        </button>
+        <button type="button" id="desktop-theme-btn" class="btn-outline" style="width: 100%;">Dark Mode</button>
       </div>
-      <button type="submit" class="btn-primary" style="width: 100%;">Save Weigh-In & Update Targets</button>
-    </form>
-    <div id="weight-history-list" class="weight-history-list"></div>
-  </section>
+    </nav>
 
-  <!-- Collapsible Body Stats & Deficit Calculator -->
-  <section id="stats-panel" class="card" style="display: none;">
-    <h2>Body Stats & Deficit Targets</h2>
-    <form id="stats-form" style="margin-top: 12px;">
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="user-sex">Sex</label>
-          <select id="user-sex">
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
+    <main class="main-viewport">
+      <!-- Mobile Top Header -->
+      <header class="mobile-header">
+        <h1>Macro Tracker</h1>
+        <div class="header-controls">
+          <button type="button" id="mobile-sync-pill" class="sync-pill">
+            <span class="sync-dot" id="mobile-sync-dot"></span>
+            <span id="mobile-sync-label">Offline</span>
+          </button>
+          <button type="button" id="mobile-theme-btn" class="btn-outline">Dark</button>
         </div>
-        <div class="form-group">
-          <label for="user-age">Age (years)</label>
-          <input type="number" id="user-age" placeholder="20" required>
+      </header>
+
+      <div id="status-toast" class="status-toast"></div>
+
+      <!-- TAB 1: TODAY -->
+      <section id="tab-today" class="tab-view active">
+        <div class="desktop-split-grid">
+          <!-- Left Column (Sticky on Desktop) -->
+          <div class="desktop-sticky-col">
+            <div class="week-card">
+              <div class="week-top-row">
+                <div class="date-label-wrap">
+                  <input type="date" id="date-picker" aria-label="Select date">
+                  <button type="button" id="today-btn" class="today-jump-btn" style="display: none;">Today</button>
+                </div>
+                <div class="streak-badge" title="Consecutive days logged">
+                  <span>Streak:</span>
+                  <span id="streak-count">0d</span>
+                </div>
+              </div>
+              <div id="week-strip" class="week-strip"></div>
+            </div>
+
+            <div class="hero-cal-card">
+              <div class="hero-cal-header">
+                <span>Calories</span>
+                <button type="button" id="toggle-dash-mode-btn" class="mode-switch-btn">⇄ Showing Consumed</button>
+              </div>
+              <div class="hero-cal-numbers">
+                <div class="hero-cal-primary" id="cal-hero-main">0 <small>/ -- kcal</small></div>
+                <div class="hero-cal-secondary" id="cal-hero-sub">-- left</div>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="cal-progress-bar"></div>
+              </div>
+            </div>
+
+            <div class="macros-split-card">
+              <div class="macro-col">
+                <h4>Protein</h4>
+                <div class="macro-num" id="pro-val-text">0g <small>/ --</small></div>
+                <div class="progress-track slim">
+                  <div class="progress-fill" id="pro-progress-bar"></div>
+                </div>
+              </div>
+              <div class="macro-col">
+                <h4>Carbs</h4>
+                <div class="macro-num" id="carb-val-text">0g <small>/ --</small></div>
+                <div class="progress-track slim">
+                  <div class="progress-fill" id="carb-progress-bar"></div>
+                </div>
+              </div>
+              <div class="macro-col">
+                <h4>Fat</h4>
+                <div class="macro-num" id="fat-val-text">0g <small>/ --</small></div>
+                <div class="progress-track slim">
+                  <div class="progress-fill" id="fat-progress-bar"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- NHS Guardrails (Sugars, Fibre, Salt) -->
+            <div class="nhs-card">
+              <div class="nhs-card-header">
+                <span>NHS Daily Guardrails</span>
+              </div>
+              <div class="nhs-grid">
+                <div class="macro-col">
+                  <h4>Free Sugars</h4>
+                  <div class="macro-num" id="free-sugar-text">0g <small>/ 30g</small></div>
+                  <span class="nhs-subtext" id="total-sugar-sub">Total: 0g / 90g RI</span>
+                  <div class="progress-track slim">
+                    <div class="progress-fill" id="sugar-progress-bar"></div>
+                  </div>
+                </div>
+                <div class="macro-col">
+                  <h4>Fibre</h4>
+                  <div class="macro-num" id="fibre-val-text">0g <small>/ 30g</small></div>
+                  <span class="nhs-subtext">NHS daily goal</span>
+                  <div class="progress-track slim">
+                    <div class="progress-fill" id="fibre-progress-bar"></div>
+                  </div>
+                </div>
+                <div class="macro-col">
+                  <h4>Salt</h4>
+                  <div class="macro-num" id="salt-val-text">0g <small>/ 6g</small></div>
+                  <span class="nhs-subtext">NHS max limit</span>
+                  <div class="progress-track slim">
+                    <div class="progress-fill" id="salt-progress-bar"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="deficit-banner" class="deficit-banner">
+              Set your Body Stats in Settings to track your daily calorie deficit.
+            </div>
+          </div>
+
+          <!-- Right Column: 6 Interactive Meal & Drink Cards -->
+          <div id="grouped-meals-container"></div>
         </div>
-        <div class="form-group">
-          <label for="user-weight">Weight (kg)</label>
-          <input type="number" id="user-weight" placeholder="85" step="0.1" required>
+      </section>
+
+      <!-- TAB 2: LOG -->
+      <section id="tab-log" class="tab-view">
+        <div class="desktop-equal-grid">
+          <!-- Left Column: Saved Directory, Meal Presets & Recents -->
+          <div class="card">
+            <div class="saved-box-label">
+              <span>Directory & Presets (<span id="directory-count">0</span>)</span>
+              <button type="button" id="open-preset-builder-btn" class="new-preset-trigger">+ Create Meal Preset</button>
+            </div>
+
+            <!-- Multi-Ingredient Meal Preset Builder -->
+            <div id="preset-builder-box" class="preset-builder">
+              <strong style="font-size: 0.85rem; display: block; margin-bottom: 8px;">New Multi-Ingredient Meal Preset</strong>
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="preset-name-input">Preset Name</label>
+                  <input type="text" id="preset-name-input" placeholder="e.g. Protein Smoothie">
+                </div>
+                <div class="form-group">
+                  <label for="preset-meal-select">Default Category</label>
+                  <select id="preset-meal-select">
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Snack">Snack</option>
+                    <option value="Dessert">Dessert</option>
+                    <option value="Drink">Drink</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="preset-ing-select">Add Ingredient from Saved Directory</label>
+                <div style="display: flex; gap: 6px;">
+                  <select id="preset-ing-select" style="flex: 2;"></select>
+                  <input type="number" id="preset-ing-amount" placeholder="g/ml/qty" step="any" style="flex: 1;">
+                  <button type="button" id="preset-add-ing-btn" class="btn-secondary" style="flex: 0.8; padding: 8px;">Add</button>
+                </div>
+              </div>
+
+              <div id="preset-ing-list" style="margin-bottom: 8px;"></div>
+              <div id="preset-total-preview" style="font-size: 0.77rem; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+                Preset Total: 0 kcal | P: 0.0g | C: 0.0g | F: 0.0g
+              </div>
+              <div class="button-group" style="margin-top: 6px;">
+                <button type="button" id="save-preset-btn" class="btn-primary" style="padding: 8px;">Save Preset</button>
+                <button type="button" id="cancel-preset-btn" class="btn-tertiary" style="margin-top: 0; padding: 8px;">Cancel</button>
+              </div>
+            </div>
+
+            <div class="library-tabs">
+              <button type="button" id="tab-meal-btn" class="lib-tab-btn active">For Breakfast</button>
+              <button type="button" id="tab-presets-btn" class="lib-tab-btn">Presets</button>
+              <button type="button" id="tab-recent-btn" class="lib-tab-btn">Recents</button>
+              <button type="button" id="tab-all-btn" class="lib-tab-btn">Directory</button>
+            </div>
+            <input type="search" id="saved-search" placeholder="Search saved foods, drinks & presets...">
+            <div id="saved-foods-list" class="saved-list"></div>
+          </div>
+
+          <!-- Right Column: Food / Drink Entry Form & Unified Scan / Import -->
+          <div id="log-food-card" class="card">
+            <h2 style="margin-bottom: 12px;">Log Food or Drink</h2>
+
+            <form id="food-form">
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="meal-category">Category</label>
+                  <select id="meal-category">
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Snack">Snack</option>
+                    <option value="Dessert">Dessert</option>
+                    <option value="Drink">Drink</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="food-name">Food / Drink Name</label>
+                  <input type="text" id="food-name" placeholder="e.g. Chicken Breast" required>
+                </div>
+              </div>
+
+              <div class="basis-toggle">
+                <button type="button" id="basis-100g-btn" class="basis-btn active">Per 100g / 100ml</button>
+                <button type="button" id="basis-item-btn" class="basis-btn">Per Item / Serving</button>
+              </div>
+
+              <p id="base-macro-heading" style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 600;">
+                Base Nutritional Values (per 100g / 100ml):
+              </p>
+
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="calories">Calories (kcal)</label>
+                  <input type="number" id="calories" placeholder="165" required step="any">
+                </div>
+                <div class="form-group">
+                  <label for="protein">Protein (g)</label>
+                  <input type="number" id="protein" placeholder="31" step="any">
+                </div>
+                <div class="form-group">
+                  <label for="carbs">Carbs (g)</label>
+                  <input type="number" id="carbs" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                  <label for="fat">Fat (g)</label>
+                  <input type="number" id="fat" placeholder="3.6" step="any">
+                </div>
+                <div class="form-group">
+                  <label for="sugars">Sugars (g)</label>
+                  <input type="number" id="sugars" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                  <label for="fibre">Fibre (g)</label>
+                  <input type="number" id="fibre" placeholder="0" step="any">
+                </div>
+                <div class="form-group">
+                  <label for="salt">Salt (g)</label>
+                  <input type="number" id="salt" placeholder="0.1" step="any">
+                </div>
+                <div class="form-group">
+                  <label class="free-sugar-toggle" for="is-free-sugar">
+                    <input type="checkbox" id="is-free-sugar">
+                    <span>Free / Added Sugar</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="portion-amount" id="portion-label">Amount Eaten (g / ml)</label>
+                <input type="number" id="portion-amount" value="100" step="any" required>
+              </div>
+
+              <div class="preview-box" id="scaled-preview">
+                Logging: 0 kcal | P: 0.0g | C: 0.0g | F: 0.0g
+              </div>
+
+              <div class="button-group">
+                <button type="submit" class="btn-primary">Add Entry</button>
+                <button type="button" id="toggle-scan-drawer-btn" class="btn-secondary">Scan / Import</button>
+              </div>
+
+              <!-- Unified Scan / Import Drawer (Camera + Photo Library / Screenshot Drop) -->
+              <div id="scan-drawer" class="scan-drawer">
+                <div class="scan-drawer-header">
+                  <strong>Scan Barcode, Packet Label, or App Screenshot</strong>
+                  <button type="button" id="close-scan-drawer-btn" class="saved-remove-btn">Close</button>
+                </div>
+
+                <div class="button-group" style="margin-top: 0;">
+                  <button type="button" id="start-camera-btn" class="btn-primary" style="padding: 9px;">Use Live Camera</button>
+                  <button type="button" id="choose-image-btn" class="btn-secondary" style="padding: 9px;">Upload Photo / Screenshot</button>
+                </div>
+
+                <div id="image-dropzone" class="dropzone-box">
+                  <p>Tap to pick from Photos / Files, or drag & drop a screenshot here</p>
+                  <small>Auto-detects barcodes first, or extracts macros via OCR (e.g. McDonald's menu screenshots)</small>
+                </div>
+
+                <input type="file" id="unified-file-input" accept="image/*" style="display: none;">
+                <div id="unified-reader"></div>
+                <button type="button" id="capture-label-frame-btn" class="btn-primary" style="display: none; width: 100%; margin-top: 8px;">
+                  Capture Nutrition Label from Camera
+                </button>
+                <div id="hidden-file-reader" style="display: none;"></div>
+                <div id="ocr-status-box" class="ocr-box"></div>
+              </div>
+
+              <button type="button" id="save-only-btn" class="btn-tertiary">Save to Directory Only (Without Logging)</button>
+            </form>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="user-height">Height (cm)</label>
-          <input type="number" id="user-height" placeholder="172" required>
+      </section>
+
+      <!-- TAB 3: PROGRESS -->
+      <section id="tab-progress" class="tab-view">
+        <div class="desktop-equal-grid">
+          <!-- Left Column: Rolling Deficit Reality Check & Category Analytics -->
+          <div class="card">
+            <h2>Rolling Deficit & Macro Reality Check</h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted);">
+              Compares your true logged intake against your maintenance (TDEE) across your chosen window.
+            </p>
+            <div class="insights-periods">
+              <button type="button" class="period-btn" data-days="7">7D</button>
+              <button type="button" class="period-btn active" data-days="14">14D</button>
+              <button type="button" class="period-btn" data-days="30">30D</button>
+              <button type="button" class="period-btn" data-days="90">90D</button>
+              <button type="button" class="period-btn" data-days="all">All</button>
+            </div>
+            <div id="insights-content"></div>
+          </div>
+
+          <!-- Right Column: Body Weight Logger, Trend Chart & History -->
+          <div class="card">
+            <h2>Body Weight Tracker</h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+              Logging a weigh-in automatically updates your maintenance and deficit targets.
+            </p>
+            <form id="weight-form">
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="weigh-in-value">Weight (kg)</label>
+                  <input type="number" id="weigh-in-value" step="0.1" placeholder="85.0" required>
+                </div>
+                <div class="form-group">
+                  <label for="weigh-in-note">Note (optional)</label>
+                  <input type="text" id="weigh-in-note" placeholder="e.g. Morning fasted">
+                </div>
+              </div>
+              <button type="submit" class="btn-primary" style="width: 100%;">Save Weigh-In & Update Targets</button>
+            </form>
+
+            <div id="weight-chart-container" class="chart-box" style="display: none;"></div>
+            <div id="weight-history-list" class="weight-history-list"></div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="form-group">
-        <label for="user-activity">Activity Level</label>
-        <select id="user-activity">
-          <option value="1.2">Sedentary (desk job, minimal exercise)</option>
-          <option value="1.375">Lightly Active (1–3 workouts/week)</option>
-          <option value="1.55" selected>Moderately Active (3–5 workouts/week)</option>
-          <option value="1.725">Very Active (6–7 workouts/week)</option>
-          <option value="1.9">Extra Active (physical job + daily training)</option>
-        </select>
-      </div>
+      <!-- TAB 4: SETTINGS -->
+      <section id="tab-settings" class="tab-view">
+        <div class="desktop-equal-grid">
+          <!-- Left Column: Body Stats & Deficit Calculator -->
+          <div class="card">
+            <h2>Body Stats & Deficit Targets</h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+              Calculates your Mifflin-St Jeor maintenance (TDEE) and applies your calorie adjustment.
+            </p>
+            <form id="stats-form">
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="user-sex">Sex</label>
+                  <select id="user-sex">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="user-age">Age (years)</label>
+                  <input type="number" id="user-age" placeholder="20" required>
+                </div>
+                <div class="form-group">
+                  <label for="user-weight">Weight (kg)</label>
+                  <input type="number" id="user-weight" placeholder="85" step="0.1" required>
+                </div>
+                <div class="form-group">
+                  <label for="user-height">Height (cm)</label>
+                  <input type="number" id="user-height" placeholder="172" required>
+                </div>
+              </div>
 
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="goal-adjustment">Calorie Adjustment</label>
-          <input type="number" id="goal-adjustment" value="-500" step="50" placeholder="-500 for deficit">
-        </div>
-        <div class="form-group">
-          <label for="protein-ratio">Protein Target (g/kg)</label>
-          <input type="number" id="protein-ratio" value="2.0" step="0.1" placeholder="2.0">
-        </div>
-      </div>
+              <div class="form-group">
+                <label for="user-activity">Activity Level</label>
+                <select id="user-activity">
+                  <option value="1.2">Sedentary (desk job, minimal exercise)</option>
+                  <option value="1.375">Lightly Active (1–3 workouts/week)</option>
+                  <option value="1.55" selected>Moderately Active (3–5 workouts/week)</option>
+                  <option value="1.725">Very Active (6–7 workouts/week)</option>
+                  <option value="1.9">Extra Active (physical job + daily training)</option>
+                </select>
+              </div>
 
-      <button type="submit" class="btn-primary" style="width: 100%;">Save Stats & Calculate</button>
-    </form>
-  </section>
+              <div class="input-grid">
+                <div class="form-group">
+                  <label for="goal-adjustment">Calorie Adjustment</label>
+                  <input type="number" id="goal-adjustment" value="-500" step="50" placeholder="-500 for deficit">
+                </div>
+                <div class="form-group">
+                  <label for="protein-ratio">Protein Target (g/kg)</label>
+                  <input type="number" id="protein-ratio" value="1.6" step="0.1" placeholder="1.6">
+                </div>
+              </div>
 
-  <!-- 7-Day Ring Strip & Streak Counter -->
-  <section class="week-card">
-    <div class="week-top-row">
-      <div class="date-label-wrap">
-        <input type="date" id="date-picker" aria-label="Select date">
-        <button type="button" id="today-btn" class="today-jump-btn" style="display: none;">Today</button>
-      </div>
-      <div class="streak-badge" title="Consecutive days logged">
-        <span>Streak:</span>
-        <span id="streak-count">0d</span>
-      </div>
-    </div>
-    <div id="week-strip" class="week-strip"></div>
-  </section>
+              <button type="submit" class="btn-primary" style="width: 100%;">Save Stats & Calculate</button>
+            </form>
+          </div>
 
-  <!-- Split Hero Dashboard (Calories Card + 3-Macro Card + Consumed/Remaining Switch) -->
-  <section class="hero-cal-card">
-    <div class="hero-cal-header">
-      <span>Calories</span>
-      <button type="button" id="toggle-dash-mode-btn" class="mode-switch-btn">&#8644; Showing Consumed</button>
-    </div>
-    <div class="hero-cal-numbers">
-      <div class="hero-cal-primary" id="cal-hero-main">0 <small>/ -- kcal</small></div>
-      <div class="hero-cal-secondary" id="cal-hero-sub">-- left</div>
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill" id="cal-progress-bar"></div>
-    </div>
-  </section>
-
-  <section class="macros-split-card">
-    <div class="macro-col">
-      <h4>Protein</h4>
-      <div class="macro-num" id="pro-val-text">0g <small>/ --</small></div>
-      <div class="progress-track slim">
-        <div class="progress-fill" id="pro-progress-bar"></div>
-      </div>
-    </div>
-    <div class="macro-col">
-      <h4>Carbs</h4>
-      <div class="macro-num" id="carb-val-text">0g <small>/ --</small></div>
-      <div class="progress-track slim">
-        <div class="progress-fill" id="carb-progress-bar"></div>
-      </div>
-    </div>
-    <div class="macro-col">
-      <h4>Fat</h4>
-      <div class="macro-num" id="fat-val-text">0g <small>/ --</small></div>
-      <div class="progress-track slim">
-        <div class="progress-fill" id="fat-progress-bar"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Live Deficit Banner -->
-  <div id="deficit-banner" class="deficit-banner">
-    Set your Body Stats above to track your daily calorie deficit.
-  </div>
-
-  <!-- Interactive Meal Cards (Always Visible with Copy Previous & + Log) -->
-  <section id="grouped-meals-container"></section>
-
-  <!-- Barcode Camera Container & Hidden OCR Image Input -->
-  <div id="reader"></div>
-  <input type="file" id="ocr-file-input" accept="image/*" capture="environment" style="display: none;">
-
-  <!-- Food Logging Form -->
-  <section id="log-food-card" class="card">
-    <h2 style="margin-bottom: 12px;">Log Food or Meal</h2>
-
-    <div id="status-toast" class="status-toast"></div>
-    <div id="ocr-status-box" class="ocr-box"></div>
-
-    <form id="food-form">
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="meal-category">Meal</label>
-          <select id="meal-category">
-            <option value="Breakfast">Breakfast</option>
-            <option value="Lunch">Lunch</option>
-            <option value="Dinner">Dinner</option>
-            <option value="Snack">Snack</option>
-            <option value="Dessert">Dessert</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="food-name">Food Name</label>
-          <input type="text" id="food-name" placeholder="e.g. Chicken Breast" required>
-        </div>
-      </div>
-
-      <!-- Smart Meal Directory, Presets & Recents -->
-      <div class="saved-foods-box">
-        <div class="saved-box-label">
-          <span>Directory & Presets (<span id="directory-count">0</span>)</span>
-          <button type="button" id="open-preset-builder-btn" class="new-preset-trigger">+ Create Meal Preset</button>
-        </div>
-
-        <!-- Inline Multi-Ingredient Meal Preset Builder -->
-        <div id="preset-builder-box" class="preset-builder">
-          <strong style="font-size: 0.84rem; display: block; margin-bottom: 8px;">New Multi-Ingredient Meal Preset</strong>
-          <div class="input-grid">
+          <!-- Right Column: Google Sheets Cloud Sync & CSV Export -->
+          <div class="card">
+            <h2>Google Sheets Cloud Sync & Backup</h2>
+            <p id="sync-status-text" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; margin-bottom: 12px;">
+              Not connected. Paste your Google Apps Script Web App URL below to sync across devices.
+            </p>
             <div class="form-group">
-              <label for="preset-name-input">Preset Name</label>
-              <input type="text" id="preset-name-input" placeholder="e.g. Protein Smoothie">
+              <label for="cloud-url-input">Apps Script Web App URL</label>
+              <input type="url" id="cloud-url-input" placeholder="https://script.google.com/macros/s/.../exec">
             </div>
-            <div class="form-group">
-              <label for="preset-meal-select">Default Meal Tag</label>
-              <select id="preset-meal-select">
-                <option value="Breakfast">Breakfast</option>
-                <option value="Lunch">Lunch</option>
-                <option value="Dinner">Dinner</option>
-                <option value="Snack">Snack</option>
-                <option value="Dessert">Dessert</option>
-              </select>
+            <div class="button-group">
+              <button type="button" id="save-cloud-url-btn" class="btn-primary">Connect & Sync</button>
+              <button type="button" id="sync-now-btn" class="btn-secondary">Sync Now</button>
+            </div>
+            <div class="button-group">
+              <button type="button" id="push-all-btn" class="btn-tertiary" style="margin-top: 0;">Push Local Data to Sheet</button>
+              <button type="button" id="export-csv-btn" class="btn-tertiary" style="margin-top: 0;">Download CSV (Excel)</button>
             </div>
           </div>
-
-          <div class="form-group">
-            <label for="preset-ing-select">Add Ingredient from Saved Directory</label>
-            <div style="display: flex; gap: 6px;">
-              <select id="preset-ing-select" style="flex: 2;"></select>
-              <input type="number" id="preset-ing-amount" placeholder="g / qty" step="any" style="flex: 1;">
-              <button type="button" id="preset-add-ing-btn" class="btn-secondary" style="flex: 0.8; padding: 8px;">Add</button>
-            </div>
-          </div>
-
-          <div id="preset-ing-list" style="margin-bottom: 8px;"></div>
-          <div id="preset-total-preview" style="font-size: 0.78rem; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
-            Preset Total: 0 kcal | P: 0.0g | C: 0.0g | F: 0.0g
-          </div>
-          <div class="button-group" style="margin-top: 6px;">
-            <button type="button" id="save-preset-btn" class="btn-primary" style="padding: 8px;">Save Preset</button>
-            <button type="button" id="cancel-preset-btn" class="btn-tertiary" style="margin-top: 0; padding: 8px;">Cancel</button>
-          </div>
         </div>
-
-        <div class="library-tabs">
-          <button type="button" id="tab-meal-btn" class="lib-tab-btn active">For Breakfast</button>
-          <button type="button" id="tab-presets-btn" class="lib-tab-btn">Presets</button>
-          <button type="button" id="tab-recent-btn" class="lib-tab-btn">Recents</button>
-          <button type="button" id="tab-all-btn" class="lib-tab-btn">Directory</button>
-        </div>
-        <input type="search" id="saved-search" placeholder="Search saved foods & presets...">
-        <div id="saved-foods-list" class="saved-list"></div>
-      </div>
-
-      <!-- Portion Basis Switch -->
-      <div class="basis-toggle">
-        <button type="button" id="basis-100g-btn" class="basis-btn active">Per 100g</button>
-        <button type="button" id="basis-item-btn" class="basis-btn">Per Item / Serving</button>
-      </div>
-
-      <p id="base-macro-heading" style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 600;">
-        Base Nutritional Values (per 100g):
-      </p>
-
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="calories">Calories (kcal)</label>
-          <input type="number" id="calories" placeholder="165" required step="any">
-        </div>
-        <div class="form-group">
-          <label for="protein">Protein (g)</label>
-          <input type="number" id="protein" placeholder="31" step="any">
-        </div>
-        <div class="form-group">
-          <label for="carbs">Carbs (g)</label>
-          <input type="number" id="carbs" placeholder="0" step="any">
-        </div>
-        <div class="form-group">
-          <label for="fat">Fat (g)</label>
-          <input type="number" id="fat" placeholder="3.6" step="any">
-        </div>
-      </div>
-
-      <!-- Portion Consumed Input -->
-      <div class="form-group">
-        <label for="portion-amount" id="portion-label">Amount Eaten (g)</label>
-        <input type="number" id="portion-amount" value="100" step="any" required>
-      </div>
-
-      <!-- Live Scaled Preview -->
-      <div class="preview-box" id="scaled-preview">
-        Logging: 0 kcal | P: 0.0g | C: 0.0g | F: 0.0g
-      </div>
-
-      <div class="button-group">
-        <button type="submit" class="btn-primary">Add Entry</button>
-        <button type="button" id="scan-btn" class="btn-secondary">Barcode</button>
-        <button type="button" id="scan-label-btn" class="btn-secondary">Scan Label</button>
-      </div>
-      <button type="button" id="save-only-btn" class="btn-tertiary">Save Food to Directory Only (Without Logging)</button>
-    </form>
-  </section>
+      </section>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>

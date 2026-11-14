@@ -1,5 +1,5 @@
-const CACHE_NAME = 'macro-tracker-v8';
-const ASSETS = [
+const CACHE_NAME = 'macro-tracker-v9';
+const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './app.js',
@@ -7,40 +7,43 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
   );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let external API requests (Google Sheets & Open Food Facts) bypass the service worker
-  if (!event.request.url.startsWith(self.location.origin)) {
+  const url = event.request.url;
+
+  if (
+    url.includes('script.google.com') ||
+    url.includes('openfoodfacts.org') ||
+    url.includes('unpkg.com') ||
+    url.includes('jsdelivr.net')
+  ) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
+  // Network-first for app files so pushes update immediately, falling back to cache offline
   event.respondWith(
-    fetch(event.request, { cache: 'no-store' })
-      .then((response) => {
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return response;
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
       })
       .catch(() => caches.match(event.request))
   );
